@@ -28,9 +28,9 @@ impl AggregateRoot for OrderEntity {
     fn handle_command(&mut self, command: Self::Command) -> Result<(&Self::State, Vec<SequencedEvent<Self::Event>>), Self::Error> {
        let (new_state, events) = match &self.order_state {
             OrderState::OrderInitiated(order_initiated) => 
-                OrderEntity::initiated_command_handler(self.sequence_number, order_initiated, command)?,
+                self.initiated_command_handler(self.sequence_number, order_initiated, command)?,
             OrderState::OrderWithAddress(order_with_addr) => 
-                OrderEntity::with_addr_command_handler(self.sequence_number, order_with_addr, command)?,
+                self.with_addr_command_handler(self.sequence_number, order_with_addr, command)?,
             OrderState::OrderCompleted(_) => todo!(),
         };
 
@@ -70,7 +70,7 @@ impl AggregateRoot for OrderEntity {
 
 impl OrderEntity {
 
-    fn initiated_command_handler(current_seq_number: u64, order_initiated: &OrderInitiated, command: OrderCommand) -> 
+    fn initiated_command_handler(&self, current_seq_number: u64, order_initiated: &OrderInitiated, command: OrderCommand) -> 
         Result<(OrderState, Events), &'static str> {
 
         match command {
@@ -103,7 +103,7 @@ impl OrderEntity {
         }
     }
 
-    fn with_addr_command_handler(current_seq_number: u64, order_with_addr: &OrderWithAddress, command: OrderCommand) -> 
+    fn with_addr_command_handler(&self, current_seq_number: u64, order_with_addr: &OrderWithAddress, command: OrderCommand) -> 
         Result<(OrderState, Events), &'static str> {
 
         match command {
