@@ -48,7 +48,7 @@ impl TryFrom<&str> for PostalCode {
                 let (first_part, second_part) = trim_input.split_at(3);
                 format!("{} {}", first_part, second_part)
             };
-            Ok(Self( heapless::String::from_str(with_space.as_str()).unwrap()))
+            Ok(Self(heapless::String::from_str(with_space.as_str()).unwrap()))
             
         } else {
             Err(PostalCodeError::InvalidPostalCode)
