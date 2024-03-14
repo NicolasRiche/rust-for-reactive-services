@@ -9,7 +9,7 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum PostalCodeError {
-    #[error("invalid postal code format")]
+    #[error("Invalid postal code format")]
     InvalidPostalCode,
 }
 
