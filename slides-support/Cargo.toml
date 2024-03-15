@@ -3,3 +3,8 @@ name = "slides-support"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.76.0"
+
+[dependencies]
+lazy_static = "1.4.0"
+nutype = {version = "0.4.0", features = ["regex"] }
+regex = "1.10.3"
