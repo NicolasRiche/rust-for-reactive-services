@@ -5,14 +5,7 @@ pub struct CanadaPostalCode(FirstLetter, Digit, Letter, Digit, Letter, Digit);
 
 impl Display for CanadaPostalCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}{} {}{}{}",
-            char::from(self.0.clone()),
-            char::from(self.1.clone()),
-            char::from(self.2.clone()),
-            char::from(self.3.clone()),
-            char::from(self.4.clone()),
-            char::from(self.5.clone())
-        )
+        write!(f, "{}{}{} {}{}{}", self.0, self.1, self.2, self.3, self.4, self.5)
     }
 }
 
@@ -47,21 +40,22 @@ enum Digit {
   Zero,One,Two,Three,Four,Five,Six,Seven,Eight,Nine
 }
 
-// Implement conversion from Digit to char to easily print.
-impl From<Digit> for char {
-    fn from(digit: Digit) -> Self {
-        match digit {
-            Digit::Zero => '0',
-            Digit::One => '1',
-            Digit::Two => '2',
-            Digit::Three => '3',
-            Digit::Four => '4',
-            Digit::Five => '5',
-            Digit::Six => '6',
-            Digit::Seven => '7',
-            Digit::Eight => '8',
-            Digit::Nine => '9'
-        }
+impl Display for Digit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}",
+            match self {
+                Digit::Zero => '0',
+                Digit::One => '1',
+                Digit::Two => '2',
+                Digit::Three => '3',
+                Digit::Four => '4',
+                Digit::Five => '5',
+                Digit::Six => '6',
+                Digit::Seven => '7',
+                Digit::Eight => '8',
+                Digit::Nine => '9'
+            }
+        )
     }
 }
 
@@ -85,37 +79,39 @@ impl TryFrom<char> for Digit {
     }
 }
 
-// Define an enum for the letters allowed in a Canadian postcode.
+// Letters allowed in a Canadian postcode.
 // D, F, I, O, Q, and U are not used to avoid confusion
 #[derive(Debug, Clone, PartialEq)]
 enum Letter {
     A, B, C, E, G, H, J, K, L, M, N, P, R, S, T, V, W, X, Y, Z
 }
 
-impl From<Letter> for char {
-    fn from(letter: Letter) -> Self {
-        match letter {
-            Letter::A => 'A',
-            Letter::B => 'B',
-            Letter::C => 'C',
-            Letter::E => 'D',
-            Letter::G => 'G',
-            Letter::H => 'H',
-            Letter::J => 'J',
-            Letter::K => 'K',
-            Letter::L => 'L',
-            Letter::M => 'M',
-            Letter::N => 'N',
-            Letter::P => 'P',
-            Letter::R => 'R',
-            Letter::S => 'S',
-            Letter::T => 'T',
-            Letter::V => 'V',
-            Letter::W => 'W',
-            Letter::X => 'X',
-            Letter::Y => 'Y',
-            Letter::Z => 'Z'
-        }
+impl Display for Letter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}",
+            match self {
+                Letter::A => 'A',
+                Letter::B => 'B',
+                Letter::C => 'C',
+                Letter::E => 'D',
+                Letter::G => 'G',
+                Letter::H => 'H',
+                Letter::J => 'J',
+                Letter::K => 'K',
+                Letter::L => 'L',
+                Letter::M => 'M',
+                Letter::N => 'N',
+                Letter::P => 'P',
+                Letter::R => 'R',
+                Letter::S => 'S',
+                Letter::T => 'T',
+                Letter::V => 'V',
+                Letter::W => 'W',
+                Letter::X => 'X',
+                Letter::Y => 'Y',
+                Letter::Z => 'Z'
+            }
+        )
     }
 }
 
@@ -158,28 +154,30 @@ enum FirstLetter {
     A, B, C, E, G, H, J, K, L, M, N, P, R, S, T, V, X, Y
 }
 
-impl From<FirstLetter> for char {
-    fn from(letter: FirstLetter) -> Self {
-        match letter {
-            FirstLetter::A => 'A',
-            FirstLetter::B => 'B',
-            FirstLetter::C => 'C',
-            FirstLetter::E => 'D',
-            FirstLetter::G => 'G',
-            FirstLetter::H => 'H',
-            FirstLetter::J => 'J',
-            FirstLetter::K => 'K',
-            FirstLetter::L => 'L',
-            FirstLetter::M => 'M',
-            FirstLetter::N => 'N',
-            FirstLetter::P => 'P',
-            FirstLetter::R => 'R',
-            FirstLetter::S => 'S',
-            FirstLetter::T => 'T',
-            FirstLetter::V => 'V',
-            FirstLetter::X => 'X',
-            FirstLetter::Y => 'Y'
-        }
+impl Display for FirstLetter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}",
+            match self {
+                FirstLetter::A => 'A',
+                FirstLetter::B => 'B',
+                FirstLetter::C => 'C',
+                FirstLetter::E => 'D',
+                FirstLetter::G => 'G',
+                FirstLetter::H => 'H',
+                FirstLetter::J => 'J',
+                FirstLetter::K => 'K',
+                FirstLetter::L => 'L',
+                FirstLetter::M => 'M',
+                FirstLetter::N => 'N',
+                FirstLetter::P => 'P',
+                FirstLetter::R => 'R',
+                FirstLetter::S => 'S',
+                FirstLetter::T => 'T',
+                FirstLetter::V => 'V',
+                FirstLetter::X => 'X',
+                FirstLetter::Y => 'Y'
+            }
+        )
     }
 }
 
