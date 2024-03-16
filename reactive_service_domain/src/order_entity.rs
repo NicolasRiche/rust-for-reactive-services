@@ -10,8 +10,8 @@ use crate::order_state::{
     Currency, DeliveryAddress, Money, OrderInitiated, OrderState, OrderWithAddress, ProductId, Quantity
 };
 
-
 struct OrderId(String);
+
 struct OrderEntity{
     id: OrderId,
     order_state: OrderState,
@@ -55,7 +55,7 @@ impl AggregateRoot for OrderEntity {
                         self.order_state = new_state;
                         &self.order_state
                     }
-                    OrderEvent::Paid { payment_token } => 
+                    OrderEvent::Paid{..} => 
                     panic!("Cannot apply Paid event to an InitiatedOrder")
                     ,
                 }
