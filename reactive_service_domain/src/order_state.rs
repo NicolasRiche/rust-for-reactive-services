@@ -8,12 +8,6 @@ pub enum OrderState {
     OrderCompleted(OrderCompleted)
 }
 
-impl Default for OrderState {
-    fn default() -> Self {
-        OrderState::OrderInitiated(OrderInitiated::default())
-    }
-}
-
 pub struct OrderInitiated {
     cart: HashMap<ProductId, Quantity>
 }
@@ -29,10 +23,17 @@ impl OrderInitiated {
 
     pub fn get_cart(&self) -> &HashMap<ProductId, Quantity> { &self.cart }
 
-    pub fn with_cart(self, cart: HashMap<ProductId, Quantity>) -> Self { Self { cart } }
+    pub fn with_cart(&self, cart: HashMap<ProductId, Quantity>) -> Self {
+        Self { cart }
+    }
 
-    pub fn with_delivery_address(self, delivery_address: DeliveryAddress, shipping_cost: Money, tax: Money) -> OrderWithAddress {
-        OrderWithAddress { cart: self.cart, delivery_address, shipping_cost, tax }
+    pub fn with_delivery_address(&self, delivery_address: DeliveryAddress, shipping_cost: Money, tax: Money) -> OrderWithAddress {
+        OrderWithAddress {
+            cart: self.cart.clone(),
+            delivery_address,
+            shipping_cost,
+            tax
+        }
     }
     
 }
@@ -46,20 +47,27 @@ pub struct OrderWithAddress {
 
 impl OrderWithAddress {
 
-    pub fn with_cart(self, cart: HashMap<ProductId, Quantity>, shipping_cost: Money, tax: Money) -> Self {
-        Self { cart, shipping_cost, tax, ..self }
+    pub fn with_cart(&self, cart: HashMap<ProductId, Quantity>, shipping_cost: Money, tax: Money) -> Self {
+        Self {
+            cart, delivery_address: self.delivery_address.clone(), shipping_cost, tax,
+        }
     }
 
-    pub fn with_delivery_address(self, delivery_address: DeliveryAddress, shipping_cost: Money, tax: Money) -> OrderWithAddress {
-        OrderWithAddress { delivery_address, shipping_cost, tax, ..self }
+    pub fn with_delivery_address(&self, delivery_address: DeliveryAddress, shipping_cost: Money, tax: Money) -> OrderWithAddress {
+        OrderWithAddress {
+            cart: self.cart.clone(),
+            delivery_address,
+            shipping_cost,
+            tax
+        }
     }
 
-    pub fn complete_order(self, invoice_id: InvoiceId) -> OrderCompleted {
+    pub fn complete_order(&self, invoice_id: InvoiceId) -> OrderCompleted {
         OrderCompleted{
-            cart: self.cart,
-            delivery_address: self.delivery_address,
-            shipping_cost: self.shipping_cost,
-            tax: self.tax,
+            cart: self.cart.clone(),
+            delivery_address: self.delivery_address.clone(),
+            shipping_cost: self.shipping_cost.clone(),
+            tax: self.tax.clone(),
             invoice_id
         }
     }
