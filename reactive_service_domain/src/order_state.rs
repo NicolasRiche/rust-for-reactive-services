@@ -20,14 +20,10 @@ pub struct OrderInitiated {
 }
 
 impl Default for OrderInitiated {
-    fn default() -> Self {
-        Self::new()
-    }
+    fn default() -> Self { Self{ cart: HashMap::default() }}
 }
 
 impl OrderInitiated {
-    pub fn new() -> Self { Self::default() }
-
     pub fn get_cart(&self) -> &HashMap<ProductId, Quantity> { &self.cart }
 
     pub fn with_cart(self, cart: HashMap<ProductId, Quantity>) -> Self {
