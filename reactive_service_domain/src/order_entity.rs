@@ -4,73 +4,84 @@ type SeqEvent = SequencedEvent<OrderEvent>;
 type Events = Vec<SeqEvent>;
 
 use crate::aggregate_root::{
-    AggregateRoot, SequencedEvent
+    AggregateRoot, AggregateCommandResult, SequencedEvent
 };
 use crate::order_state::{
     Currency, DeliveryAddress, Money, OrderInitiated, OrderState, OrderWithAddress, ProductId, Quantity
 };
 
-struct OrderId(String);
-
 struct OrderEntity{
-    id: OrderId,
     order_state: OrderState,
     sequence_number: u64
 }
 
 impl AggregateRoot for OrderEntity {
-    type EntityId = OrderId;
-    type Command = OrderCommand;
-    type Event = OrderEvent;
     type State = OrderState;
+    type Command = OrderCommand;
     type Error = &'static str;
-
-    fn handle_command(&mut self, command: Self::Command) -> Result<(&Self::State, Vec<SequencedEvent<Self::Event>>), Self::Error> {
-       let (new_state, events) = match &self.order_state {
-            OrderState::OrderInitiated(order_initiated) => 
-                self.initiated_command_handler(self.sequence_number, order_initiated, command)?,
-            OrderState::OrderWithAddress(order_with_addr) => 
-                self.with_addr_command_handler(self.sequence_number, order_with_addr, command)?,
-            OrderState::OrderCompleted(_) => todo!(),
-        };
-
-        self.order_state = new_state;
-        if let Some(last_event) = events.last() {
-            self.sequence_number = last_event.sequence_number
-        }
-        Ok((&self.order_state, events))
-    }
-
-    fn apply_event(&mut self, seq_evt: SequencedEvent<Self::Event>) -> &Self::State {
-        match &mut self.order_state {
-            OrderState::OrderInitiated(order_initiated) => {
-                match seq_evt.event {
-                    OrderEvent::UpdatedCart { cart } => {
-                        let new_state = OrderState::OrderInitiated(order_initiated.with_cart(cart));
-                        self.order_state = new_state;
-                        &self.order_state
-                    },
-                    OrderEvent::AddedOrUpdateDeliveryAddress { delivery_address, shipping_cost, tax } => {
-                        let new_state = OrderState::OrderWithAddress(order_initiated.with_delivery_address(delivery_address, shipping_cost, tax));
-                        self.order_state = new_state;
-                        &self.order_state
-                    }
-                    OrderEvent::Paid{..} => 
-                        panic!("Cannot apply Paid event to an InitiatedOrder"),
-                }
-            }
-            OrderState::OrderWithAddress(_) => todo!(),
-            OrderState::OrderCompleted(_) => todo!(),
-        }
-    }
-
+    type Event = OrderEvent;
     
+    fn load_from_events(&mut self, events: Vec<SequencedEvent<Self::Event>>) -> &Self::State {
+       for event in events {
+         let current_state = std::mem::take(&mut self.order_state);
+         self.order_state = Self::apply_event(current_state, event);
+       }
+       &self.order_state
+    }
+
+    fn handle_command(&mut self, command: Self::Command) -> Result<AggregateCommandResult<Self::State, Self::Event>, Self::Error> {
+        // Handle required mutations here
+        // Passing only immutables data to a pure function that return new state and the events
+        let current_state = std::mem::take(&mut self.order_state);
+        match Self::handle_command_with_state(self.sequence_number, current_state, command) {
+           Ok((new_state, events)) => {
+                self.order_state = new_state;
+                if let Some(last_event) = events.last() {
+                    self.sequence_number = last_event.sequence_number
+                }
+                Ok(AggregateCommandResult{state: &self.order_state, events})
+            },
+                Err((current_state, err)) => {
+                self.order_state = current_state;
+                Err(err)
+            }
+       }
+    }
+    
+    // fn handle_command(&mut self, command: Self::Command) -> Result<(&Self::State, Vec<SequencedEvent<Self::Event>>), Self::Error> {
+    //     // Handle required mutations here
+    //     // Passing only immutables data to a pure function that return new state and the events
+    //     let current_state = std::mem::take(&mut self.order_state);
+    //     match Self::handle_command_with_state(self.sequence_number, current_state, command) {
+    //        Ok((new_state, events)) => {
+    //             self.order_state = new_state;
+    //             if let Some(last_event) = events.last() {
+    //                 self.sequence_number = last_event.sequence_number
+    //             }
+    //             Ok((&self.order_state, events))
+    //         },
+    //             Err((current_state, err)) => {
+    //             self.order_state = current_state;
+    //             Err(err)
+    //         }
+    //    }
+    // }
 }
 
 impl OrderEntity {
 
-    fn initiated_command_handler(&self, current_seq_number: u64, order_initiated: &OrderInitiated, command: OrderCommand) -> 
-        Result<(OrderState, Events), &'static str> {
+    fn handle_command_with_state(current_seq_number: u64, current_state: OrderState, command: OrderCommand) -> Result<(OrderState, Events), (OrderState, &'static str)> {
+        match current_state {
+            OrderState::OrderInitiated(order_initiated) =>
+                Self::initiated_command_handler(current_seq_number, order_initiated, command),
+            OrderState::OrderWithAddress(order_with_addr) =>
+                Self::with_addr_command_handler(current_seq_number, order_with_addr, command),
+            OrderState::OrderCompleted(_) => todo!(),
+        }
+    }
+
+    fn initiated_command_handler(current_seq_number: u64, order_initiated: OrderInitiated, command: OrderCommand) ->
+        Result<(OrderState, Events), (OrderState, &'static str)> {
 
         match command {
             OrderCommand::UpdateCart { cart } => {
@@ -79,7 +90,7 @@ impl OrderEntity {
                 let events = vec![
                     SequencedEvent{ sequence_number: seq_number, event: OrderEvent::UpdatedCart{cart}}
                     ];
-                Ok((new_state, events))
+                Ok((new_state,events))
             },
             OrderCommand::AddOrUpdateDeliveryAddress { delivery_address } => {
                 let shipping_cost = Money{amount_cents: 4000u32, currency: Currency::Cad };
@@ -96,14 +107,14 @@ impl OrderEntity {
                         }
                     }
                     ];
-                Ok((new_state, events))
+                Ok((new_state,events))
             },
-            OrderCommand::Pay{..} => Err("Order is not ready for payment"),
+            OrderCommand::Pay{..} => Err((OrderState::OrderInitiated(order_initiated), "Order is not ready for payment")),
         }
     }
 
-    fn with_addr_command_handler(&self, current_seq_number: u64, order_with_addr: &OrderWithAddress, command: OrderCommand) -> 
-        Result<(OrderState, Events), &'static str> {
+    fn with_addr_command_handler(current_seq_number: u64, order_with_addr: OrderWithAddress, command: OrderCommand) -> 
+        Result<(OrderState, Events), (OrderState, &'static str)> {
 
         match command {
             OrderCommand::UpdateCart { cart } => {
@@ -114,7 +125,7 @@ impl OrderEntity {
                 let seq_number = current_seq_number + 1;
                 let events = vec![
                     SequencedEvent{ sequence_number: seq_number, event: OrderEvent::UpdatedCart{cart}}
-                    ];
+                ];
                 Ok((new_state, events))
             },
             OrderCommand::AddOrUpdateDeliveryAddress { delivery_address } => {
@@ -133,10 +144,27 @@ impl OrderEntity {
                             tax
                         }
                     }
-                    ];
+                ];
                 Ok((new_state, events))
             },
-            OrderCommand::Pay{..} => Err("Order is not ready for payment"),
+            OrderCommand::Pay{..} => Err((OrderState::OrderWithAddress(order_with_addr), "Order is not ready for payment")),
+        }
+    }
+
+    fn apply_event(order_state: OrderState, seq_evt: SequencedEvent<OrderEvent>) -> OrderState {
+        match order_state {
+            OrderState::OrderInitiated(order_initiated) => {
+                match seq_evt.event {
+                    OrderEvent::UpdatedCart { cart } =>
+                        OrderState::OrderInitiated(order_initiated.with_cart(cart)),
+                    OrderEvent::AddedOrUpdateDeliveryAddress { delivery_address, shipping_cost, tax } =>
+                       OrderState::OrderWithAddress(order_initiated.with_delivery_address(delivery_address, shipping_cost, tax)),
+                    OrderEvent::Paid{..} =>
+                        panic!("Cannot apply Paid event to an InitiatedOrder")
+                }
+            }
+            OrderState::OrderWithAddress(_) => todo!(),
+            OrderState::OrderCompleted(_) => todo!(),
         }
     }
 

@@ -4,14 +4,20 @@ pub struct SequencedEvent<E> {
     pub event: E,
 }
 
+pub struct AggregateCommandResult<'a, S, E>{
+    pub state: &'a S,
+    pub events: Vec<SequencedEvent<E>>
+}
+
 pub trait AggregateRoot {
-    type EntityId;
-    type Command;
-    type Event;
     type State;
+    type Command;
     type Error;
+    type Event;
 
-    fn handle_command(&mut self, command: Self::Command) -> Result<(&Self::State, Vec<SequencedEvent<Self::Event>>), Self::Error>;
+    fn load_from_events(&mut self, events: Vec<SequencedEvent<Self::Event>>) 
+        -> &Self::State;
 
-    fn apply_event(&mut self, seq_evt: SequencedEvent<Self::Event>) -> &Self::State;
+    fn handle_command(&mut self, command: Self::Command) 
+        -> Result<AggregateCommandResult<Self::State, Self::Event>, Self::Error>;
 }

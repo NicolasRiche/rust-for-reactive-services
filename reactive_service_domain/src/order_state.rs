@@ -8,6 +8,13 @@ pub enum OrderState {
     OrderCompleted(OrderCompleted)
 }
 
+impl Default for OrderState {
+    fn default() -> Self {
+        OrderState::OrderInitiated(OrderInitiated::default())
+    }
+}
+
+
 pub struct OrderInitiated {
     cart: HashMap<ProductId, Quantity>
 }
@@ -23,16 +30,16 @@ impl OrderInitiated {
 
     pub fn get_cart(&self) -> &HashMap<ProductId, Quantity> { &self.cart }
 
-    pub fn with_cart(&self, cart: HashMap<ProductId, Quantity>) -> Self {
+    pub fn with_cart(self, cart: HashMap<ProductId, Quantity>) -> Self {
         Self { cart }
     }
 
-    pub fn with_delivery_address(&self, delivery_address: DeliveryAddress, shipping_cost: Money, tax: Money) -> OrderWithAddress {
+    pub fn with_delivery_address(self, delivery_address: DeliveryAddress, shipping_cost: Money, tax: Money) -> OrderWithAddress {
         OrderWithAddress {
-            cart: self.cart.clone(),
+            cart: self.cart,
             delivery_address,
             shipping_cost,
-            tax
+            tax,
         }
     }
     
