@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::postal_code::PostalCode;
+use crate::canada_postal_code::CanadaPostalCode;
 
 pub enum OrderState {
     OrderInitiated(OrderInitiated),
@@ -90,7 +90,7 @@ pub struct Quantity(u16);
 #[derive(Clone)]
 pub struct DeliveryAddress {
     street: Street,
-    postal_code: PostalCode
+    postal_code: CanadaPostalCode
 }
 
 #[derive(Clone)]

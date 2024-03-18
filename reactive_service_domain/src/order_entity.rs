@@ -56,8 +56,7 @@ impl AggregateRoot for OrderEntity {
                         &self.order_state
                     }
                     OrderEvent::Paid{..} => 
-                    panic!("Cannot apply Paid event to an InitiatedOrder")
-                    ,
+                        panic!("Cannot apply Paid event to an InitiatedOrder"),
                 }
             }
             OrderState::OrderWithAddress(_) => todo!(),
