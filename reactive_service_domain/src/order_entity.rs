@@ -132,16 +132,16 @@ impl OrderEntity {
                 let shipping_cost = Money{amount_cents: 4000u32, currency: Currency::Cad };
                 let tax = Money{amount_cents: 1200u32, currency: Currency::Cad };
 
-                let new_state = OrderState::OrderWithAddress(order_with_addr.with_delivery_address(delivery_address.clone(), shipping_cost.clone(), tax.clone()));
+                let new_state = OrderState::OrderWithAddress(order_with_addr.with_delivery_address(
+                    delivery_address.clone(), shipping_cost.clone(), tax.clone())
+                );
 
                 let seq_number = current_seq_number + 1;
                 let events = vec![
                     SequencedEvent{ 
                         sequence_number: seq_number, 
                         event: OrderEvent::AddedOrUpdateDeliveryAddress{
-                            delivery_address,
-                            shipping_cost,
-                            tax
+                            delivery_address, shipping_cost, tax
                         }
                     }
                 ];
