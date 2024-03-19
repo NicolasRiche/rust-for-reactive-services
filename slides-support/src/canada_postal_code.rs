@@ -21,13 +21,15 @@ impl TryFrom<&str> for CanadaPostalCode {
         // Convert input string to uppercase letters and digits
         let input = input.to_uppercase();
 
+        let mut chars = input.chars();
+
         // Parse and validate each character
-        let l1 = FirstLetter::try_from(input.chars().nth(0).unwrap())?;
-        let d1 = Digit::try_from(input.chars().nth(1).unwrap())?;
-        let l2 = Letter::try_from(input.chars().nth(2).unwrap())?;
-        let d2 = Digit::try_from(input.chars().nth(3).unwrap())?;
-        let l3 = Letter::try_from(input.chars().nth(4).unwrap())?;
-        let d3 = Digit::try_from(input.chars().nth(5).unwrap())?;
+        let l1 = FirstLetter::try_from(chars.next().ok_or("Missing char")?)?;
+        let d1 = Digit::try_from(chars.next().ok_or("Missing char")?)?;
+        let l2 = Letter::try_from(chars.next().ok_or("Missing char")?)?;
+        let d2 = Digit::try_from(chars.next().ok_or("Missing char")?)?;
+        let l3 = Letter::try_from(chars.next().ok_or("Missing char")?)?;
+        let d3 = Digit::try_from(chars.next().ok_or("Missing char")?)?;
 
         // If all validations pass, return a new CanadaPostalCode instance
         Ok(CanadaPostalCode(l1, d1, l2, d2, l3, d3))
