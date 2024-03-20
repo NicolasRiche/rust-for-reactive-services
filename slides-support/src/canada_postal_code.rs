@@ -1,4 +1,4 @@
-use std::{convert::TryFrom, fmt::Display};
+use std::{convert::TryFrom, fmt::Display, str::FromStr};
 
 #[derive(Debug, PartialEq)]
 pub struct CanadaPostalCode(FirstLetter, Digit, Letter, Digit, Letter, Digit);
@@ -6,6 +6,33 @@ pub struct CanadaPostalCode(FirstLetter, Digit, Letter, Digit, Letter, Digit);
 impl Display for CanadaPostalCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}{}{} {}{}{}", self.0, self.1, self.2, self.3, self.4, self.5)
+    }
+}
+
+impl FromStr for CanadaPostalCode {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Remove spaces and validate length
+        let input = s.replace(' ', "");
+        if input.len() != 6 {
+            return Err("Invalid length");
+        }
+        // Convert input string to uppercase letters and digits
+        let input = input.to_uppercase();
+
+        let mut chars = input.chars();
+
+        // Parse and validate each character
+        let l1 = FirstLetter::try_from(chars.next().ok_or("Missing char")?)?;
+        let d1 = Digit::try_from(chars.next().ok_or("Missing char")?)?;
+        let l2 = Letter::try_from(chars.next().ok_or("Missing char")?)?;
+        let d2 = Digit::try_from(chars.next().ok_or("Missing char")?)?;
+        let l3 = Letter::try_from(chars.next().ok_or("Missing char")?)?;
+        let d3 = Digit::try_from(chars.next().ok_or("Missing char")?)?;
+
+        // If all validations pass, return a new CanadaPostalCode instance
+        Ok(CanadaPostalCode(l1, d1, l2, d2, l3, d3))
     }
 }
 

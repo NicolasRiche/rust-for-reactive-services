@@ -15,15 +15,15 @@ fn main() {
 
 fn test_nutype() -> Result<(),&'static str> {
 
-    CanadaPostalCodeNuType::try_from("K1B 0A1").unwrap();
+    let postal_code = "K1B 0A1".parse::<CanadaPostalCode>().unwrap();
 
     Ok(())
 }
 
 fn test_enums() -> Result<(),&'static str> {
 
-    let postal = CanadaPostalCode::try_from("K1B0A1").unwrap();
-    print!("{}", postal);
+    let postal_code = "K1B 0A1".parse::<CanadaPostalCode>().unwrap();
+    print!("{}", postal_code);
 
     Ok(())
 }
