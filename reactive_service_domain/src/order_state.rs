@@ -1,37 +1,42 @@
 use std::collections::HashMap;
 
-use crate::canada_postal_code::CanadaPostalCode;
+use crate::{canada_postal_code::CanadaPostalCode, non_empty_cart::NonEmptyCart};
+
 
 pub enum OrderState {
-    OrderInitiated(OrderInitiated),
-    OrderWithAddress(OrderWithAddress),
-    OrderCompleted(OrderCompleted)
+    Empty(Empty),
+    WithCart(WithCart),
+    WithAddress(WithAddress),
+    Completed(Completed)
 }
 
 impl Default for OrderState {
     fn default() -> Self {
-        OrderState::OrderInitiated(OrderInitiated::default())
+        OrderState::Empty(Empty{})
+    }
+}
+
+pub struct Empty{} 
+impl Empty {
+    pub fn with_cart(self, cart: NonEmptyCart) -> WithCart { 
+        WithCart { cart } 
     }
 }
 
 
-pub struct OrderInitiated {
-    cart: HashMap<ProductId, Quantity>
+pub struct WithCart {
+    cart: NonEmptyCart
 }
 
-impl Default for OrderInitiated {
-    fn default() -> Self { Self{ cart: HashMap::default() }}
-}
+impl WithCart {
+    pub fn get_cart(&self) -> &NonEmptyCart { &self.cart }
 
-impl OrderInitiated {
-    pub fn get_cart(&self) -> &HashMap<ProductId, Quantity> { &self.cart }
-
-    pub fn with_cart(self, cart: HashMap<ProductId, Quantity>) -> Self {
-        Self { cart }
+    pub fn with_cart(self, cart: NonEmptyCart) -> Self { 
+        Self { cart } 
     }
 
-    pub fn with_delivery_address(self, delivery_address: DeliveryAddress, shipping_cost: Money, tax: Money) -> OrderWithAddress {
-        OrderWithAddress {
+    pub fn with_delivery_address(self, delivery_address: DeliveryAddress, shipping_cost: Money, tax: Money) -> WithAddress {
+        WithAddress {
             cart: self.cart,
             delivery_address,
             shipping_cost,
@@ -41,25 +46,25 @@ impl OrderInitiated {
     
 }
 
-pub struct OrderWithAddress {
-    cart: HashMap<ProductId, Quantity>,
+pub struct WithAddress {
+    cart: NonEmptyCart,
     delivery_address: DeliveryAddress,
     shipping_cost: Money,
     tax: Money
 }
 
-impl OrderWithAddress {
+impl WithAddress {
 
-    pub fn with_cart(self, cart: HashMap<ProductId, Quantity>, shipping_cost: Money, tax: Money) -> Self {
+    pub fn with_cart(self, cart: NonEmptyCart, shipping_cost: Money, tax: Money) -> Self {
         Self { cart, shipping_cost, tax, ..self }
     }
 
-    pub fn with_delivery_address(self, delivery_address: DeliveryAddress, shipping_cost: Money, tax: Money) -> OrderWithAddress {
+    pub fn with_delivery_address(self, delivery_address: DeliveryAddress, shipping_cost: Money, tax: Money) -> Self {
         Self { delivery_address, shipping_cost, tax, ..self }
     }
 
-    pub fn complete_order(self, invoice_id: InvoiceId) -> OrderCompleted {
-        OrderCompleted{
+    pub fn complete_order(self, invoice_id: InvoiceId) -> Completed {
+        Completed{
             cart: self.cart,
             delivery_address: self.delivery_address,
             shipping_cost: self.shipping_cost,
@@ -69,19 +74,13 @@ impl OrderWithAddress {
     }
 }
 
-pub struct OrderCompleted {
-    cart: HashMap<ProductId, Quantity>,
+pub struct Completed {
+    cart: NonEmptyCart,
     delivery_address: DeliveryAddress,
     shipping_cost: Money,
     tax: Money,
     invoice_id: InvoiceId
 }
-
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct ProductId(String);
-
-#[derive(Clone, PartialEq, Eq)]
-pub struct Quantity(u16);
 
 #[derive(Clone)]
 pub struct DeliveryAddress {
