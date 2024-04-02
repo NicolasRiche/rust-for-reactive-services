@@ -1,7 +1,4 @@
-use std::collections::HashMap;
-
 use crate::{canada_postal_code::CanadaPostalCode, non_empty_cart::NonEmptyCart};
-
 
 pub enum OrderState {
     Empty(Empty),
@@ -54,6 +51,8 @@ pub struct WithAddress {
 }
 
 impl WithAddress {
+    pub fn get_cart(&self) -> &NonEmptyCart { &self.cart }
+    pub fn get_delivery_address(&self) -> &DeliveryAddress { &self.delivery_address }
 
     pub fn with_cart(self, cart: NonEmptyCart, shipping_cost: Money, tax: Money) -> Self {
         Self { cart, shipping_cost, tax, ..self }
@@ -64,7 +63,7 @@ impl WithAddress {
     }
 
     pub fn complete_order(self, invoice_id: InvoiceId) -> Completed {
-        Completed{
+        Completed {
             cart: self.cart,
             delivery_address: self.delivery_address,
             shipping_cost: self.shipping_cost,
