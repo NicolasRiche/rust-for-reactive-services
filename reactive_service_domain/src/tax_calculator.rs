@@ -1,5 +1,5 @@
 use crate::non_empty_cart::NonEmptyCart;
-use crate::order_state::{Currency, DeliveryAddress, Money};
+use crate::order_state::{Currency, Money};
 
 pub struct TaxCalculator {}
 

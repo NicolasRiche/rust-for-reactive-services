@@ -2,20 +2,18 @@
 name = "reactive_service_domain"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.76.0"
+rust-version = "1.77.1"
 
 [lib]
 name = "reactive_service_domain"
 path = "src/lib.rs"
 
 [dependencies]
-serde = { version = "1", features = ["derive"] }
-serde_derive = "1.0"
-regex = "1.10.3"
-heapless = { version = "0.8.0", features = ["serde"] }
-thiserror = "1.0.57"
-lazy_static = "1.4.0"
-itertools = "0.12.1"
+serde = { version = "*", features = ["derive"] }
+serde_derive = "*"
+regex = "*"
+heapless = { version = "*", features = ["serde"] }
+lazy_static = "*"
 
 [profile.release]
 lto = "fat"

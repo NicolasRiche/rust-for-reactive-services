@@ -153,7 +153,7 @@ impl OrderEntity {
         }
     }
 
-    fn with_completed_order(&self, completed_order: Completed, command: OrderCommand) ->
+    fn with_completed_order(&self, completed_order: Completed, _command: OrderCommand) ->
         Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
         Err((OrderState::Completed(completed_order), "Order is completed"))
     }

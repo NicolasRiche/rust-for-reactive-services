@@ -6,13 +6,6 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use std::{fmt::Display, str::FromStr};
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum PostalCodeError {
-    #[error("Invalid postal code format")]
-    InvalidPostalCode,
-}
 
 /// Canadian Postal code. Validate input with or without the middle optional space (A1A 0B0 or A1A0B0).
 /// Input is sanitized with trim and uppercase.
@@ -38,7 +31,7 @@ pub enum PostalCodeError {
 pub struct CanadaPostalCode(heapless::String<6>);
 
 impl FromStr for CanadaPostalCode {
-    type Err = PostalCodeError;
+    type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let sanitized = s.trim().to_uppercase();
@@ -47,7 +40,7 @@ impl FromStr for CanadaPostalCode {
             let no_space = sanitized.replace(' ', "");
             Ok(Self(heapless::String::from_str(&no_space).unwrap()))
         } else {
-            Err(PostalCodeError::InvalidPostalCode)
+            Err("Invalid postal code format")
         }
     }
 }
