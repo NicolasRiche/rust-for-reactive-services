@@ -69,7 +69,9 @@ impl AggregateRoot for OrderEntity {
 
 impl OrderEntity {
 
-    fn handle_command_with_state(&self, current_state: OrderState, command: OrderCommand) -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
+    fn handle_command_with_state(&self, current_state: OrderState, command: OrderCommand)
+        -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
+
         match current_state {
             OrderState::Empty(order_empty) =>
                 self.empty_order_command_handler(order_empty, command),
@@ -82,8 +84,9 @@ impl OrderEntity {
         }
     }
 
-    fn empty_order_command_handler(&self, order_empty: Empty, command: OrderCommand) ->
-        Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
+    fn empty_order_command_handler(&self, order_empty: Empty, command: OrderCommand)
+        -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
+
         match command {
             OrderCommand::UpdateCart { cart } => {
                 let new_state = OrderState::WithCart(order_empty.with_cart(cart.clone()));
@@ -98,8 +101,9 @@ impl OrderEntity {
     }
 
 
-    fn with_cart_command_handler(&self, order_with_cart: WithCart, command: OrderCommand) ->
-        Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
+    fn with_cart_command_handler(&self, order_with_cart: WithCart, command: OrderCommand)
+        -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
+
         match command {
             OrderCommand::UpdateCart { cart } => {
                 let new_state = OrderState::WithCart(order_with_cart.with_cart(cart.clone()));
@@ -122,8 +126,9 @@ impl OrderEntity {
         }
     }
 
-    fn with_addr_command_handler(&self, order_with_addr: WithAddress, command: OrderCommand) ->
-        Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
+    fn with_addr_command_handler(&self, order_with_addr: WithAddress, command: OrderCommand)
+        -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
+
         match command {
             OrderCommand::UpdateCart { cart } => {
                 let shipping_cost =
@@ -154,12 +159,15 @@ impl OrderEntity {
         }
     }
 
-    fn with_completed_order(&self, completed_order: Completed, _command: OrderCommand) ->
-        Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
+    fn with_completed_order(&self, completed_order: Completed, _command: OrderCommand)
+        -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
+
         Err((OrderState::Completed(completed_order), "Order is completed"))
     }
 
-    fn apply_event(order_state: OrderState, order_event: OrderEvent) -> Result<OrderState, &'static str> {
+    fn apply_event(order_state: OrderState, order_event: OrderEvent)
+        -> Result<OrderState, &'static str> {
+
         match order_state {
             OrderState::Empty(empty_order) =>
                 match order_event {
