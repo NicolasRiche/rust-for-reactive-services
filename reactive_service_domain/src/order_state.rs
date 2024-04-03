@@ -1,5 +1,6 @@
 use crate::{canada_postal_code::CanadaPostalCode, non_empty_cart::NonEmptyCart};
 
+#[derive(Debug)]
 pub enum OrderState {
     Empty(Empty),
     WithCart(WithCart),
@@ -13,6 +14,7 @@ impl Default for OrderState {
     }
 }
 
+#[derive(Debug)]
 pub struct Empty{} 
 impl Empty {
     pub fn with_cart(self, cart: NonEmptyCart) -> WithCart { 
@@ -20,7 +22,7 @@ impl Empty {
     }
 }
 
-
+#[derive(Debug)]
 pub struct WithCart {
     cart: NonEmptyCart
 }
@@ -43,6 +45,7 @@ impl WithCart {
     
 }
 
+#[derive(Debug)]
 pub struct WithAddress {
     cart: NonEmptyCart,
     delivery_address: DeliveryAddress,
@@ -73,6 +76,7 @@ impl WithAddress {
     }
 }
 
+#[derive(Debug)]
 pub struct Completed {
     cart: NonEmptyCart,
     delivery_address: DeliveryAddress,
@@ -81,25 +85,25 @@ pub struct Completed {
     invoice_id: InvoiceId
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct DeliveryAddress {
     street: Street,
     postal_code: CanadaPostalCode
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct Street(String);
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct InvoiceId(String);
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Money {
     pub amount_cents: u32,
     pub currency: Currency
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Currency {
     Cad
 }

@@ -1,8 +1,10 @@
+#[derive(Debug)]
 pub struct SequencedEvent<E> {
     pub sequence_number: u64,
     pub event: E,
 }
 
+#[derive(Debug)]
 pub struct AggregateCommandResult<'a, S, E>{
     pub state: &'a S,
     pub events: Vec<SequencedEvent<E>>

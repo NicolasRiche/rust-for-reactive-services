@@ -201,7 +201,7 @@ impl OrderEntity {
 
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum OrderEvent{
     AddedOrUpdatedCart{cart: NonEmptyCart},
     UpdatedCart{cart: NonEmptyCart, shipping_cost: Money, tax: Money},
@@ -213,11 +213,12 @@ pub enum OrderEvent{
     Paid{payment_token: PaymentToken}
 }
 
+#[derive(Debug)]
 pub enum OrderCommand {
     UpdateCart{cart: NonEmptyCart},
     AddOrUpdateDeliveryAddress{delivery_address: DeliveryAddress},
     Pay{payment_token: PaymentToken}
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct PaymentToken(String);
