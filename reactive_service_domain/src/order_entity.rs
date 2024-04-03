@@ -1,4 +1,4 @@
-use crate::aggregate_root::{AggregateRoot, AggregateCommandResult, SequencedEvent};
+use crate::aggregate_root::{AggregateRoot, SequencedEvent};
 use crate::non_empty_cart::NonEmptyCart;
 use crate::order_state::{Completed, DeliveryAddress, Empty, Money, OrderState, WithAddress, WithCart};
 use crate::shipping_calculator::ShippingCalculator;
@@ -37,7 +37,7 @@ impl AggregateRoot for OrderEntity {
         Ok(&self.order_state)
     }
 
-    fn handle_command(&mut self, command: Self::Command) -> Result<AggregateCommandResult<Self::State, Self::Event>, Self::Error> {
+    fn handle_command(&mut self, command: Self::Command) -> Result<(&Self::State, Vec<SequencedEvent<Self::Event>>), Self::Error> {
         // Handle required mutations here
         // Passing only immutables data to a pure function that return new state and the events
 
@@ -54,7 +54,7 @@ impl AggregateRoot for OrderEntity {
                     SequencedEvent{sequence_number: self.sequence_number, event: evt.to_owned()}
                 }).collect();
 
-                Ok(AggregateCommandResult{state: &self.order_state, events: seq_events})
+                Ok((&self.order_state,seq_events))
             },
             // If error the command handler return back the order state, we re-apply it
             // to restore the enum value
