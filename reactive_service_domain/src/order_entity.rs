@@ -29,11 +29,12 @@ impl AggregateRoot for OrderEntity {
     type Event = OrderEvent;
     
     fn load_from_events(&mut self, events: Vec<SequencedEvent<Self::Event>>) -> Result<&Self::State, Self::Error> {
-       for event in events {
-         let current_state = std::mem::take(&mut self.order_state);
-         self.order_state = Self::apply_event(current_state, event)?;
-       }
-       Ok(&self.order_state)
+        for seq_event in events {
+            let current_state = std::mem::take(&mut self.order_state);
+            self.order_state = Self::apply_event(current_state, seq_event.event)?;
+            self.sequence_number = seq_event.sequence_number;
+        }
+        Ok(&self.order_state)
     }
 
     fn handle_command(&mut self, command: Self::Command) -> Result<AggregateCommandResult<Self::State, Self::Event>, Self::Error> {
@@ -49,7 +50,7 @@ impl AggregateRoot for OrderEntity {
                 self.order_state = new_state;
 
                 let seq_events = events.iter().map(|evt| {
-                    self.sequence_number = self.sequence_number+1;
+                    self.sequence_number += 1;
                     SequencedEvent{sequence_number: self.sequence_number, event: evt.to_owned()}
                 }).collect();
 
@@ -158,10 +159,10 @@ impl OrderEntity {
         Err((OrderState::Completed(completed_order), "Order is completed"))
     }
 
-    fn apply_event(order_state: OrderState, seq_evt: SequencedEvent<OrderEvent>) -> Result<OrderState, &'static str> {
+    fn apply_event(order_state: OrderState, order_event: OrderEvent) -> Result<OrderState, &'static str> {
         match order_state {
             OrderState::Empty(empty_order) =>
-                match seq_evt.event {
+                match order_event {
                     OrderEvent::AddedOrUpdatedCart { cart } =>
                         Ok(OrderState::WithCart(empty_order.with_cart(cart))),
                     OrderEvent::UpdatedCart{..} =>
@@ -173,25 +174,31 @@ impl OrderEntity {
                 }
             ,
             OrderState::WithCart(with_cart) => {
-                match seq_evt.event {
+                match order_event {
                     OrderEvent::AddedOrUpdatedCart { cart } =>
                         Ok(OrderState::WithCart(with_cart.with_cart(cart))),
                     OrderEvent::UpdatedCart{..} =>
                         Err("Cannot apply UpdatedCart event to an WithCart order"),
                     OrderEvent::AddedOrUpdatedDeliveryAddress { delivery_address, shipping_cost, tax } =>
-                        Ok(OrderState::WithAddress(with_cart.with_delivery_address(delivery_address, shipping_cost, tax))),
+                        Ok(OrderState::WithAddress(with_cart.with_delivery_address(
+                            delivery_address, shipping_cost, tax
+                        ))),
                     OrderEvent::Paid{..} =>
                         Err("Cannot apply Paid event to an WithCart order")
                 }
             }
             OrderState::WithAddress(with_addr) =>
-                match seq_evt.event {
+                match order_event {
                     OrderEvent::AddedOrUpdatedCart{..} =>
                         Err("Cannot apply AddedOrUpdatedCart event to an WithAddress order"),
                     OrderEvent::UpdatedCart { cart, shipping_cost, tax } =>
-                        Ok(OrderState::WithAddress(with_addr.with_cart(cart, shipping_cost, tax))),
+                        Ok(OrderState::WithAddress(with_addr.with_cart(
+                            cart, shipping_cost, tax
+                        ))),
                     OrderEvent::AddedOrUpdatedDeliveryAddress { delivery_address, shipping_cost, tax } =>
-                        Ok(OrderState::WithAddress(with_addr.with_delivery_address(delivery_address, shipping_cost, tax))),
+                        Ok(OrderState::WithAddress(with_addr.with_delivery_address(
+                            delivery_address, shipping_cost, tax
+                        ))),
                     OrderEvent::Paid{..} =>
                         Err("Cannot apply Paid event to an WithAddress order")
                 },
