@@ -1,5 +1,5 @@
 use crate::aggregate_root::{AggregateRoot, SequencedEvent};
-use crate::non_empty_cart::NonEmptyCart;
+use crate::non_empty_cart::{NonEmptyCart, Sku};
 use crate::order_state::{Completed, DeliveryAddress, Empty, Invoice, Money, OrderState, WithAddress, WithCart};
 use crate::payment_processor::PaymentProcessor;
 use crate::shipping_calculator::ShippingCalculator;
@@ -247,4 +247,3 @@ pub enum OrderCommand {
 
 #[derive(Debug, Clone)]
 pub struct PaymentToken(String);
-

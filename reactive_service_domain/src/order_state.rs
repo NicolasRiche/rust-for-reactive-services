@@ -100,12 +100,12 @@ pub struct Completed {
 
 #[derive(Debug, Clone)]
 pub struct DeliveryAddress {
-    street: Street,
-    postal_code: CanadaPostalCode
+    pub street: Street,
+    pub postal_code: CanadaPostalCode
 }
 
 #[derive(Debug, Clone)]
-struct Street(String);
+pub struct Street(pub String);
 
 #[derive(Debug, Clone)]
 pub struct Money {

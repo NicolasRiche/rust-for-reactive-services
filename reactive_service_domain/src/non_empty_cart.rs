@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 
-use crate::order_state::Money;
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Sku(String);
+pub struct Sku(pub String);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Quantity(u16);
+pub struct Quantity(pub u16);
 
 #[derive(Debug, Clone)]
 pub struct NonEmptyCart {
