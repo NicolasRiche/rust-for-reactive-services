@@ -1,6 +1,7 @@
 use crate::aggregate_root::{AggregateRoot, SequencedEvent};
 use crate::non_empty_cart::NonEmptyCart;
-use crate::order_state::{Completed, DeliveryAddress, Empty, Money, OrderState, WithAddress, WithCart};
+use crate::order_state::{Completed, DeliveryAddress, Empty, Invoice, Money, OrderState, WithAddress, WithCart};
+use crate::payment_processor::PaymentProcessor;
 use crate::shipping_calculator::ShippingCalculator;
 use crate::tax_calculator::TaxCalculator;
 
@@ -8,7 +9,8 @@ pub struct OrderEntity{
     order_state: OrderState,
     sequence_number: u64,
     shipping_calculator: ShippingCalculator,
-    tax_calculator: TaxCalculator
+    tax_calculator: TaxCalculator,
+    payment_processor: PaymentProcessor
 }
 
 impl Default for OrderEntity {
@@ -16,8 +18,9 @@ impl Default for OrderEntity {
         OrderEntity{
             order_state: OrderState::Empty(Empty{}),
             sequence_number: 0,
-            shipping_calculator: ShippingCalculator {},
-            tax_calculator: TaxCalculator {},
+            shipping_calculator: ShippingCalculator{},
+            tax_calculator: TaxCalculator{},
+            payment_processor: PaymentProcessor{}
         }
     }
 }
@@ -89,11 +92,11 @@ impl OrderEntity {
 
         match command {
             OrderCommand::UpdateCart { cart } => {
-                let new_state = OrderState::WithCart(order_empty.with_cart(cart.clone()));
-                let events = vec![OrderEvent::AddedOrUpdatedCart{cart}];
+                let new_state = OrderState::WithCart(order_empty.add_cart(cart.clone()));
+                let events = vec![OrderEvent::UpdatedCart{cart}];
                 Ok((new_state,events))
             },
-            OrderCommand::AddOrUpdateDeliveryAddress{..} => 
+            OrderCommand::UpdateDeliveryAddress{..} => 
                 Err((OrderState::Empty(order_empty), "Can't add a delivery address on an empty cart")),
             OrderCommand::Pay{..} => 
                 Err((OrderState::Empty(order_empty), "Order is not ready for payment")),
@@ -106,19 +109,19 @@ impl OrderEntity {
 
         match command {
             OrderCommand::UpdateCart { cart } => {
-                let new_state = OrderState::WithCart(order_with_cart.with_cart(cart.clone()));
-                let events = vec![OrderEvent::AddedOrUpdatedCart{cart}];
+                let new_state = OrderState::WithCart(order_with_cart.update_cart(cart.clone()));
+                let events = vec![OrderEvent::UpdatedCart{cart}];
                 Ok((new_state,events))
             },
-            OrderCommand::AddOrUpdateDeliveryAddress { delivery_address } => {
+            OrderCommand::UpdateDeliveryAddress { delivery_address } => {
                 let shipping_cost =
                     self.shipping_calculator.shipping_cost(order_with_cart.get_cart(), &delivery_address);
                 let tax =
                     self.tax_calculator.tax_cost(order_with_cart.get_cart(), &shipping_cost);
 
-                let new_state = OrderState::WithAddress(order_with_cart.with_delivery_address(delivery_address.clone(), shipping_cost.clone(), tax.clone()));
+                let new_state = OrderState::WithAddress(order_with_cart.add_delivery_address(delivery_address.clone(), shipping_cost.clone(), tax.clone()));
                 let events = vec![
-                    OrderEvent::AddedOrUpdatedDeliveryAddress{ delivery_address, shipping_cost, tax }
+                    OrderEvent::UpdatedDeliveryAddress { delivery_address, shipping_cost, tax }
                 ];
                 Ok((new_state,events))
             },
@@ -136,26 +139,33 @@ impl OrderEntity {
                 let tax =
                     self.tax_calculator.tax_cost(&cart, &shipping_cost);
 
-                let new_state = OrderState::WithAddress(order_with_addr.with_cart(cart.clone(), shipping_cost.clone(), tax.clone()));
-                let events = vec![OrderEvent::UpdatedCart{cart, shipping_cost, tax}];
+                let new_state = OrderState::WithAddress(order_with_addr.update_cart(cart.clone(), shipping_cost.clone(), tax.clone()));
+                let events = vec![OrderEvent::UpdatedCartOnExistingDeliveryAddress {cart, shipping_cost, tax}];
                 Ok((new_state, events))
             },
-            OrderCommand::AddOrUpdateDeliveryAddress { delivery_address } => {
+            OrderCommand::UpdateDeliveryAddress { delivery_address } => {
                 let shipping_cost =
                     self.shipping_calculator.shipping_cost(order_with_addr.get_cart(), &delivery_address);
                 let tax =
                     self.tax_calculator.tax_cost(order_with_addr.get_cart(), &shipping_cost);
 
-                let new_state = OrderState::WithAddress(order_with_addr.with_delivery_address(
+                let new_state = OrderState::WithAddress(order_with_addr.update_delivery_address(
                     delivery_address.clone(), shipping_cost.clone(), tax.clone())
                 );
 
                 let events = vec![
-                    OrderEvent::AddedOrUpdatedDeliveryAddress{ delivery_address, shipping_cost, tax }
+                    OrderEvent::UpdatedDeliveryAddress { delivery_address, shipping_cost, tax }
                 ];
                 Ok((new_state, events))
             },
-            OrderCommand::Pay{..} => Err((OrderState::WithAddress(order_with_addr), "Order is not ready for payment")),
+            OrderCommand::Pay{payment_token} => {
+                let invoice = self.payment_processor.pay_with_token(payment_token); // use the token
+                let new_state = OrderState::Completed(order_with_addr.complete_order(invoice.clone()));
+                let events = vec![
+                    OrderEvent::Completed { invoice }
+                ];
+                Ok((new_state, events))
+            }
         }
     }
 
@@ -171,44 +181,44 @@ impl OrderEntity {
         match order_state {
             OrderState::Empty(empty_order) =>
                 match order_event {
-                    OrderEvent::AddedOrUpdatedCart { cart } =>
-                        Ok(OrderState::WithCart(empty_order.with_cart(cart))),
-                    OrderEvent::UpdatedCart{..} =>
+                    OrderEvent::UpdatedCart { cart } =>
+                        Ok(OrderState::WithCart(empty_order.add_cart(cart))),
+                    OrderEvent::UpdatedCartOnExistingDeliveryAddress {..} =>
                         Err("Cannot apply UpdatedCart event to an Empty order"),
-                    OrderEvent::AddedOrUpdatedDeliveryAddress{..} =>
+                    OrderEvent::UpdatedDeliveryAddress {..} =>
                         Err("Cannot apply DeliveryAddress event to an EmptyOrder"),
-                    OrderEvent::Paid{..} =>
-                        Err("Cannot apply Paid event to an EmptyOrder"),
+                    OrderEvent::Completed{..} =>
+                        Err("Cannot apply Completed event to an EmptyOrder"),
                 }
             ,
             OrderState::WithCart(with_cart) => {
                 match order_event {
-                    OrderEvent::AddedOrUpdatedCart { cart } =>
-                        Ok(OrderState::WithCart(with_cart.with_cart(cart))),
-                    OrderEvent::UpdatedCart{..} =>
+                    OrderEvent::UpdatedCart { cart } =>
+                        Ok(OrderState::WithCart(with_cart.update_cart(cart))),
+                    OrderEvent::UpdatedCartOnExistingDeliveryAddress {..} =>
                         Err("Cannot apply UpdatedCart event to an WithCart order"),
-                    OrderEvent::AddedOrUpdatedDeliveryAddress { delivery_address, shipping_cost, tax } =>
-                        Ok(OrderState::WithAddress(with_cart.with_delivery_address(
+                    OrderEvent::UpdatedDeliveryAddress { delivery_address, shipping_cost, tax } =>
+                        Ok(OrderState::WithAddress(with_cart.add_delivery_address(
                             delivery_address, shipping_cost, tax
                         ))),
-                    OrderEvent::Paid{..} =>
-                        Err("Cannot apply Paid event to an WithCart order")
+                    OrderEvent::Completed{..} =>
+                        Err("Cannot apply Completed event to an WithCart order")
                 }
             }
             OrderState::WithAddress(with_addr) =>
                 match order_event {
-                    OrderEvent::AddedOrUpdatedCart{..} =>
+                    OrderEvent::UpdatedCart {..} =>
                         Err("Cannot apply AddedOrUpdatedCart event to an WithAddress order"),
-                    OrderEvent::UpdatedCart { cart, shipping_cost, tax } =>
-                        Ok(OrderState::WithAddress(with_addr.with_cart(
+                    OrderEvent::UpdatedCartOnExistingDeliveryAddress { cart, shipping_cost, tax } =>
+                        Ok(OrderState::WithAddress(with_addr.update_cart(
                             cart, shipping_cost, tax
                         ))),
-                    OrderEvent::AddedOrUpdatedDeliveryAddress { delivery_address, shipping_cost, tax } =>
-                        Ok(OrderState::WithAddress(with_addr.with_delivery_address(
+                    OrderEvent::UpdatedDeliveryAddress { delivery_address, shipping_cost, tax } =>
+                        Ok(OrderState::WithAddress(with_addr.update_delivery_address(
                             delivery_address, shipping_cost, tax
                         ))),
-                    OrderEvent::Paid{..} =>
-                        Err("Cannot apply Paid event to an WithAddress order")
+                    OrderEvent::Completed{invoice} =>
+                        Ok(OrderState::Completed(with_addr.complete_order(invoice))),
                 },
             OrderState::Completed(_) => Err("Cannot apply further events to a Completed order"),
         }
@@ -218,22 +228,23 @@ impl OrderEntity {
 
 #[derive(Debug, Clone)]
 pub enum OrderEvent{
-    AddedOrUpdatedCart{cart: NonEmptyCart},
-    UpdatedCart{cart: NonEmptyCart, shipping_cost: Money, tax: Money},
-    AddedOrUpdatedDeliveryAddress{
+    UpdatedCart {cart: NonEmptyCart},
+    UpdatedDeliveryAddress {
         delivery_address: DeliveryAddress,
         shipping_cost: Money,
         tax: Money
     },
-    Paid{payment_token: PaymentToken}
+    UpdatedCartOnExistingDeliveryAddress {cart: NonEmptyCart, shipping_cost: Money, tax: Money},
+    Completed{invoice: Invoice}
 }
 
 #[derive(Debug)]
 pub enum OrderCommand {
     UpdateCart{cart: NonEmptyCart},
-    AddOrUpdateDeliveryAddress{delivery_address: DeliveryAddress},
+    UpdateDeliveryAddress{delivery_address: DeliveryAddress},
     Pay{payment_token: PaymentToken}
 }
 
 #[derive(Debug, Clone)]
-struct PaymentToken(String);
+pub struct PaymentToken(String);
+

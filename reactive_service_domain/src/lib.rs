@@ -6,3 +6,4 @@ pub mod non_empty_cart;
 
 mod shipping_calculator;
 mod tax_calculator;
+mod payment_processor;
