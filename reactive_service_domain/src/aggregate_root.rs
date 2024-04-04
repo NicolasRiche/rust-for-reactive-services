@@ -11,9 +11,9 @@ pub trait AggregateRoot {
     type Error;
     type Event;
 
-    /// Create the entity from historical events.
+    /// Restore the entity from historical events.
     /// Return the read only state of the entity after applying the events.
-    fn from_events(&mut self, events: Vec<SequencedEvent<Self::Event>>)
+    fn restore_from_events(&mut self, events: Vec<SequencedEvent<Self::Event>>)
         -> Result<&Self::State, Self::Error>;
 
     /// Handle a command

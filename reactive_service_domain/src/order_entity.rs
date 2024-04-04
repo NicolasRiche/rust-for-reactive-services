@@ -31,7 +31,7 @@ impl AggregateRoot for OrderEntity {
     type Error = &'static str;
     type Event = OrderEvent;
     
-    fn from_events(&mut self, events: Vec<SequencedEvent<Self::Event>>) -> Result<&Self::State, Self::Error> {
+    fn restore_from_events(&mut self, events: Vec<SequencedEvent<Self::Event>>) -> Result<&Self::State, Self::Error> {
         for seq_event in events {
             let current_state = std::mem::take(&mut self.order_state);
             self.order_state = Self::apply_event(current_state, seq_event.event)?;
