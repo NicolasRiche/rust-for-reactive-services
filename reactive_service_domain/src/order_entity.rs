@@ -193,11 +193,11 @@ impl OrderEntity {
                     OrderEvent::UpdatedCart { cart } =>
                         Ok(OrderState::WithCart(empty_order.add_cart(cart))),
                     OrderEvent::UpdatedCartOnExistingDeliveryAddress {..} =>
-                        Err((order_state, "Cannot apply UpdatedCart event to an Empty order")),
+                        Err((OrderState::Empty(empty_order), "Cannot apply UpdatedCart event to an Empty order")),
                     OrderEvent::UpdatedDeliveryAddress {..} =>
-                        Err((order_state, "Cannot apply DeliveryAddress event to an EmptyOrder")),
+                        Err((OrderState::Empty(empty_order), "Cannot apply DeliveryAddress event to an EmptyOrder")),
                     OrderEvent::Completed{..} =>
-                        Err((order_state, "Cannot apply Completed event to an EmptyOrder")),
+                        Err((OrderState::Empty(empty_order), "Cannot apply Completed event to an EmptyOrder")),
                 }
             ,
             OrderState::WithCart(with_cart) => {
@@ -205,19 +205,19 @@ impl OrderEntity {
                     OrderEvent::UpdatedCart { cart } =>
                         Ok(OrderState::WithCart(with_cart.update_cart(cart))),
                     OrderEvent::UpdatedCartOnExistingDeliveryAddress {..} =>
-                        Err((order_state, "Cannot apply UpdatedCart event to an WithCart order")),
+                        Err((OrderState::WithCart(with_cart), "Cannot apply UpdatedCart event to an WithCart order")),
                     OrderEvent::UpdatedDeliveryAddress { delivery_address, shipping_cost, tax } =>
                         Ok(OrderState::WithAddress(with_cart.add_delivery_address(
                             delivery_address, shipping_cost, tax
                         ))),
                     OrderEvent::Completed{..} =>
-                        Err((order_state, "Cannot apply Completed event to an WithCart order"))
+                        Err((OrderState::WithCart(with_cart), "Cannot apply Completed event to an WithCart order"))
                 }
             }
             OrderState::WithAddress(with_addr) =>
                 match order_event {
                     OrderEvent::UpdatedCart {..} =>
-                        Err((order_state, "Cannot apply AddedOrUpdatedCart event to an WithAddress order")),
+                        Err((OrderState::WithAddress(with_addr), "Cannot apply AddedOrUpdatedCart event to an WithAddress order")),
                     OrderEvent::UpdatedCartOnExistingDeliveryAddress { cart, shipping_cost, tax } =>
                         Ok(OrderState::WithAddress(with_addr.update_cart(
                             cart, shipping_cost, tax
