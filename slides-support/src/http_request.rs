@@ -92,16 +92,16 @@ impl <P> HttpRequestBuilder<Post,P> where P:Payload {
 
 pub fn test() {
 
-  let post_request = HttpRequestBuilder::new()
-    .with_post_method()
-    .with_content_type("text/plain".to_string())
-    .with_payload("Try to add a body to a post method".to_string())
-    .add_header("Authorization".to_string(), "token".to_string());
-
-  let get_request = HttpRequestBuilder::new()
-    .add_header("Authorization".to_string(), "token".to_string())
-    .with_get_method()
-    .with_payload("Try to add a body to a get method".to_string());
+  // let post_request = HttpRequestBuilder::new()
+  //   .with_post_method()
+  //   .with_content_type("text/plain".to_string())
+  //   .with_payload("Try to add a body to a post method".to_string())
+  //   .add_header("Authorization".to_string(), "token".to_string());
+  //
+  // let get_request = HttpRequestBuilder::new()
+  //   .add_header("Authorization".to_string(), "token".to_string())
+  //   .with_get_method()
+  //   .with_payload("Try to add a body to a get method".to_string());
     
    
 }

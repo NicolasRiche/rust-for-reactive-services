@@ -1,5 +1,5 @@
 use crate::aggregate_root::{AggregateRoot, SequencedEvent};
-use crate::non_empty_cart::{NonEmptyCart, Sku};
+use crate::non_empty_cart::NonEmptyCart;
 use crate::order_state::{Completed, DeliveryAddress, Empty, Invoice, Money, OrderState, WithAddress, WithCart};
 use crate::payment_processor::PaymentProcessor;
 use crate::shipping_calculator::ShippingCalculator;
@@ -33,12 +33,21 @@ impl AggregateRoot for OrderEntity {
     
     fn restore_from_events(&mut self, events: Vec<SequencedEvent<Self::Event>>) -> Result<&Self::State, Self::Error> {
         for seq_event in events {
-            let current_state = std::mem::take(&mut self.order_state);
-            self.order_state = Self::apply_event(current_state, seq_event.event)?;
-            self.sequence_number = seq_event.sequence_number;
+            let current_state = std::mem::replace(&mut self.order_state, OrderState::Empty(Empty{}));
+            match Self::apply_event(current_state, seq_event.event) {
+                Ok(newState) => {
+                    self.order_state = newState;
+                    self.sequence_number = seq_event.sequence_number
+                },
+                Err((current_state, err)) => {
+                    self.order_state = current_state;
+                    return Err(err)
+                },
+            }
         }
         Ok(&self.order_state)
     }
+
 
     fn handle_command(&mut self, command: Self::Command) -> Result<(&Self::State, Vec<SequencedEvent<Self::Event>>), Self::Error> {
         // Handle required mutations here
@@ -176,7 +185,7 @@ impl OrderEntity {
     }
 
     fn apply_event(order_state: OrderState, order_event: OrderEvent)
-        -> Result<OrderState, &'static str> {
+        -> Result<OrderState, (OrderState, &'static str)> {
 
         match order_state {
             OrderState::Empty(empty_order) =>
@@ -184,11 +193,11 @@ impl OrderEntity {
                     OrderEvent::UpdatedCart { cart } =>
                         Ok(OrderState::WithCart(empty_order.add_cart(cart))),
                     OrderEvent::UpdatedCartOnExistingDeliveryAddress {..} =>
-                        Err("Cannot apply UpdatedCart event to an Empty order"),
+                        Err((order_state, "Cannot apply UpdatedCart event to an Empty order")),
                     OrderEvent::UpdatedDeliveryAddress {..} =>
-                        Err("Cannot apply DeliveryAddress event to an EmptyOrder"),
+                        Err((order_state, "Cannot apply DeliveryAddress event to an EmptyOrder")),
                     OrderEvent::Completed{..} =>
-                        Err("Cannot apply Completed event to an EmptyOrder"),
+                        Err((order_state, "Cannot apply Completed event to an EmptyOrder")),
                 }
             ,
             OrderState::WithCart(with_cart) => {
@@ -196,19 +205,19 @@ impl OrderEntity {
                     OrderEvent::UpdatedCart { cart } =>
                         Ok(OrderState::WithCart(with_cart.update_cart(cart))),
                     OrderEvent::UpdatedCartOnExistingDeliveryAddress {..} =>
-                        Err("Cannot apply UpdatedCart event to an WithCart order"),
+                        Err((order_state, "Cannot apply UpdatedCart event to an WithCart order")),
                     OrderEvent::UpdatedDeliveryAddress { delivery_address, shipping_cost, tax } =>
                         Ok(OrderState::WithAddress(with_cart.add_delivery_address(
                             delivery_address, shipping_cost, tax
                         ))),
                     OrderEvent::Completed{..} =>
-                        Err("Cannot apply Completed event to an WithCart order")
+                        Err((order_state, "Cannot apply Completed event to an WithCart order"))
                 }
             }
             OrderState::WithAddress(with_addr) =>
                 match order_event {
                     OrderEvent::UpdatedCart {..} =>
-                        Err("Cannot apply AddedOrUpdatedCart event to an WithAddress order"),
+                        Err((order_state, "Cannot apply AddedOrUpdatedCart event to an WithAddress order")),
                     OrderEvent::UpdatedCartOnExistingDeliveryAddress { cart, shipping_cost, tax } =>
                         Ok(OrderState::WithAddress(with_addr.update_cart(
                             cart, shipping_cost, tax
@@ -220,7 +229,8 @@ impl OrderEntity {
                     OrderEvent::Completed{invoice} =>
                         Ok(OrderState::Completed(with_addr.complete_order(invoice))),
                 },
-            OrderState::Completed(_) => Err("Cannot apply further events to a Completed order"),
+            OrderState::Completed(_) =>
+                Err((order_state, "Cannot apply further events to a Completed order")),
         }
     }
 
