@@ -7,7 +7,7 @@ use crate::tax_calculator::TaxCalculator;
 
 pub struct OrderEntity{
     order_state: OrderState,
-    sequence_number: u64,
+    sequence_number: i64,
     shipping_calculator: ShippingCalculator,
     tax_calculator: TaxCalculator,
     payment_processor: PaymentProcessor
@@ -51,11 +51,10 @@ impl AggregateRoot for OrderEntity {
 
     fn handle_command(&mut self, command: Self::Command) -> Result<(&Self::State, Vec<SequencedEvent<Self::Event>>), Self::Error> {
         // Handle required mutations here
-        // Passing only immutables data to a pure function that return new state and the events
+        // Passing only immutable data to a pure function that return new state and the events
 
-        // Take ownership of the current order state, temporary replace the enum value by default (Empty)
-        // which is cheap performance wise
-        let current_state = std::mem::take(&mut self.order_state);
+        // Take ownership of the current order state, temporary replace the enum value by an empty state
+        let current_state = std::mem::replace(&mut self.order_state, OrderState::Empty(Empty{}));
         match self.handle_command_with_state(current_state, command) {
             // If success, we have a new state to apply and a sequence of events
             Ok((new_state, events)) => {

@@ -1,6 +1,6 @@
 #[derive(Debug)]
 pub struct SequencedEvent<E> {
-    pub sequence_number: u64,
+    pub sequence_number: i64,
     pub event: E,
 }
 
