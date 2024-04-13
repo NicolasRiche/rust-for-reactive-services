@@ -4,6 +4,7 @@ pub mod order_state;
 pub mod order_entity;
 pub mod non_empty_cart;
 
-mod shipping_calculator;
-mod tax_calculator;
-mod payment_processor;
+pub mod shipping_calculator;
+pub mod tax_calculator;
+pub mod payment_processor;
+

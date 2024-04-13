@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SequencedEvent<E> {
     pub sequence_number: i64,
     pub event: E,
@@ -10,6 +10,7 @@ pub trait AggregateRoot {
     type Command;
     type Error;
     type Event;
+    type Services<'a>;
 
     /// Restore the entity from historical events.
     /// Return the read only state of the entity after applying the events.
@@ -19,6 +20,6 @@ pub trait AggregateRoot {
     /// Handle a command
     /// Success: Return the updated read only state + the sequence of applied events.
     /// Failure: Return an error, the state is unchanged. 
-    fn handle_command(&mut self, command: Self::Command) 
-        -> Result<(&Self::State, Vec<SequencedEvent<Self::Event>>), Self::Error>;
+    async fn handle_command<'a>(&mut self, command: Self::Command, services: Self::Services<'a>)
+      -> Result<(&Self::State, Vec<SequencedEvent<Self::Event>>), Self::Error>;
 }

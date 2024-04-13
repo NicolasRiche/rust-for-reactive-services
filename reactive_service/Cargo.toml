@@ -1,19 +1,15 @@
 [package]
-name = "reactive_service_domain"
+name = "reactive_service"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.77.1"
 
-[lib]
-name = "reactive_service_domain"
-path = "src/lib.rs"
-
 [dependencies]
+reactive_service_domain = { path = "../reactive_service_domain" }
 serde = { version = "*", features = ["derive"] }
+serde_json = "*"
 serde_derive = "*"
-regex = "*"
-heapless = { version = "*", features = ["serde"] }
-lazy_static = "*"
+postgres = "*"
 async-trait = "0.1.80"
 
 [profile.release]
