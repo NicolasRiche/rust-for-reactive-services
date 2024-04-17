@@ -79,7 +79,7 @@ impl AggregateRoot for OrderEntity {
 impl OrderEntity {
 
     fn handle_command_with_state<'a>(&self, current_state: OrderState, command: OrderCommand, services: &'a dyn OrderServices)
-                                           -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
+        -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
 
         match current_state {
             OrderState::Empty(order_empty) =>
