@@ -20,6 +20,6 @@ pub trait AggregateRoot {
     /// Handle a command
     /// Success: Return the updated read only state + the sequence of applied events.
     /// Failure: Return an error, the state is unchanged. 
-    async fn handle_command<'a>(&mut self, command: Self::Command, services: Self::Services<'a>)
-      -> Result<(&Self::State, Vec<SequencedEvent<Self::Event>>), Self::Error>;
+    fn handle_command<'a>(&mut self, command: Self::Command, services: Self::Services<'a>) 
+        -> Result<(&Self::State, Vec<SequencedEvent<Self::Event>>), Self::Error>;
 }

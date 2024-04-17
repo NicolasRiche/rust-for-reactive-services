@@ -2,7 +2,7 @@
 name = "reactive_service_domain"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.77.1"
+rust-version = "1.77.2"
 
 [lib]
 name = "reactive_service_domain"
@@ -14,7 +14,6 @@ serde_derive = "*"
 regex = "*"
 heapless = { version = "*", features = ["serde"] }
 lazy_static = "*"
-async-trait = "0.1.80"
 
 [profile.release]
 lto = "fat"

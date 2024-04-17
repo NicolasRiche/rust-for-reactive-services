@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-
 use std::collections::HashMap;
 use reactive_service_domain::aggregate_root::{AggregateRoot, SequencedEvent};
 use reactive_service_domain::non_empty_cart::NonEmptyCart;
@@ -18,9 +16,8 @@ pub struct OrderDependenciesServices {
     pub tax_calculator: LocalTaxCalculator
 }
 
-#[async_trait]
 impl OrderServices for OrderDependenciesServices {
-    async fn shipping_cost(&self, cart: &NonEmptyCart, delivery_address: &DeliveryAddress) -> Money {
+    fn shipping_cost(&self, cart: &NonEmptyCart, delivery_address: &DeliveryAddress) -> Money {
         todo!()
     }
 
@@ -51,7 +48,7 @@ where E: EventsStore<OrderEvent>{
         }
     }
 
-    async fn dispatch_command(&mut self, entity_id: i64, command: OrderCommand)
+    fn dispatch_command(&mut self, entity_id: i64, command: OrderCommand)
         -> Result<(&OrderState, Vec<SequencedEvent<OrderEvent>>), &'static str> {
 
        let order = self.orders.entry(entity_id)
@@ -62,7 +59,7 @@ where E: EventsStore<OrderEvent>{
                 entity
             });
 
-        let (state, events) = order.handle_command(command, &self.order_services).await?;
+        let (state, events) = order.handle_command(command, &self.order_services)?;
 
         for evt in &events {
             self.events_store.persist_event(entity_id, evt)?;

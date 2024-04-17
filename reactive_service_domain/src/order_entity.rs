@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-
 use crate::aggregate_root::{AggregateRoot, SequencedEvent};
 use crate::non_empty_cart::NonEmptyCart;
 use crate::order_state::{Completed, DeliveryAddress, Empty, Invoice, Money, OrderState, WithAddress, WithCart};
@@ -18,11 +16,8 @@ impl Default for OrderEntity {
     }
 }
 
-// Since Rust 1.75, async trait are supported. However it does not support dyn dispatch yet.
-// So still need [async_trait] crate for that
-#[async_trait]
 pub trait OrderServices {
-    async fn shipping_cost(&self, cart: &NonEmptyCart, delivery_address: &DeliveryAddress) -> Money;
+    fn shipping_cost(&self, cart: &NonEmptyCart, delivery_address: &DeliveryAddress) -> Money;
     fn tax_cost(&self, cart: &NonEmptyCart, shipping_cost: &Money) -> Money;
 }
 
@@ -51,14 +46,14 @@ impl AggregateRoot for OrderEntity {
     }
 
 
-    async fn handle_command<'a>(&mut self, command: Self::Command, services: Self::Services<'a>)
+    fn handle_command<'a>(&mut self, command: Self::Command, services: Self::Services<'a>)
       -> Result<(&Self::State, Vec<SequencedEvent<Self::Event>>), Self::Error> {
         // Handle required mutations here
         // Passing only immutable data to a pure function that return new state and the events
 
         // Take ownership of the current order state, temporary replace the enum value by an empty state
         let current_state = std::mem::replace(&mut self.order_state, OrderState::Empty(Empty{}));
-        match self.handle_command_with_state(current_state, command, services).await {
+        match self.handle_command_with_state(current_state, command, services) {
             // If success, we have a new state to apply and a sequence of events
             Ok((new_state, events)) => {
                 self.order_state = new_state;
@@ -83,16 +78,16 @@ impl AggregateRoot for OrderEntity {
 
 impl OrderEntity {
 
-    async fn handle_command_with_state<'a>(&self, current_state: OrderState, command: OrderCommand, services: &'a dyn OrderServices)
+    fn handle_command_with_state<'a>(&self, current_state: OrderState, command: OrderCommand, services: &'a dyn OrderServices)
                                            -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
 
         match current_state {
             OrderState::Empty(order_empty) =>
                 self.empty_order_command_handler(order_empty, command),
             OrderState::WithCart(order_with_cart) =>
-                self.with_cart_command_handler(order_with_cart, command, services).await,
+                self.with_cart_command_handler(order_with_cart, command, services),
             OrderState::WithAddress(order_with_addr) =>
-                self.with_addr_command_handler(order_with_addr, command, services).await,
+                self.with_addr_command_handler(order_with_addr, command, services),
             OrderState::Completed(completed_order) =>
                 self.with_completed_order(completed_order, command)
         }
@@ -115,7 +110,7 @@ impl OrderEntity {
     }
 
 
-    async fn with_cart_command_handler<'a>(&self, order_with_cart: WithCart, command: OrderCommand, services: &'a dyn OrderServices)
+    fn with_cart_command_handler<'a>(&self, order_with_cart: WithCart, command: OrderCommand, services: &'a dyn OrderServices)
         -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
 
         match command {
@@ -126,7 +121,7 @@ impl OrderEntity {
             },
             OrderCommand::UpdateDeliveryAddress { delivery_address } => {
                 let shipping_cost =
-                    services.shipping_cost(order_with_cart.get_cart(), &delivery_address).await;
+                    services.shipping_cost(order_with_cart.get_cart(), &delivery_address);
                 let tax =
                     services.tax_cost(order_with_cart.get_cart(), &shipping_cost);
 
@@ -140,13 +135,13 @@ impl OrderEntity {
         }
     }
 
-    async fn with_addr_command_handler<'a>(&self, order_with_addr: WithAddress, command: OrderCommand, services: &'a dyn OrderServices)
+    fn with_addr_command_handler<'a>(&self, order_with_addr: WithAddress, command: OrderCommand, services: &'a dyn OrderServices)
         -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
 
         match command {
             OrderCommand::UpdateCart { cart } => {
                 let shipping_cost =
-                    services.shipping_cost(&cart, order_with_addr.get_delivery_address()).await;
+                    services.shipping_cost(&cart, order_with_addr.get_delivery_address());
                 let tax =
                     services.tax_cost(&cart, &shipping_cost);
 
@@ -156,7 +151,7 @@ impl OrderEntity {
             },
             OrderCommand::UpdateDeliveryAddress { delivery_address } => {
                 let shipping_cost =
-                    services.shipping_cost(order_with_addr.get_cart(), &delivery_address).await;
+                    services.shipping_cost(order_with_addr.get_cart(), &delivery_address);
                 let tax =
                     services.tax_cost(order_with_addr.get_cart(), &shipping_cost);
 
