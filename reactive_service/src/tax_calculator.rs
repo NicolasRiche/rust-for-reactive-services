@@ -1,6 +1,5 @@
-use crate::non_empty_cart::NonEmptyCart;
-use crate::order_state::{Currency, Money};
-
+use reactive_service_domain::non_empty_cart::NonEmptyCart;
+use reactive_service_domain::order_state::{Currency, Money};
 
 pub trait TaxCalculator {
     fn tax_cost(&self, cart: &NonEmptyCart, shipping_cost: &Money) -> Money;

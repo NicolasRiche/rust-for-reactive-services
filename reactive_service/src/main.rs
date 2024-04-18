@@ -1,12 +1,10 @@
-use crate::order_service::OrderService;
-
 mod order_service;
 mod infra;
-
-use infra::postgres_events_store;
+mod shipping_calculator;
+mod payment_processor;
+mod tax_calculator;
 
 
 fn main() {
-    PostgresEventStore::
-    let order_service = OrderService::new()
+
 }

@@ -16,24 +16,19 @@ impl Default for OrderEntity {
     }
 }
 
-pub trait OrderServices {
-    fn shipping_cost(&self, cart: &NonEmptyCart, delivery_address: &DeliveryAddress) -> Money;
-    fn tax_cost(&self, cart: &NonEmptyCart, shipping_cost: &Money) -> Money;
-}
 
 impl AggregateRoot for OrderEntity {
     type State = OrderState;
-    type Command = OrderCommand;
+    type Command = OrderEntityCommand;
     type Error = &'static str;
     type Event = OrderEvent;
-    type Services<'a> = &'a dyn OrderServices;
     
     fn restore_from_events(&mut self, events: Vec<SequencedEvent<Self::Event>>) -> Result<&Self::State, Self::Error> {
         for seq_event in events {
             let current_state = std::mem::replace(&mut self.order_state, OrderState::Empty(Empty{}));
             match Self::apply_event(current_state, seq_event.event) {
-                Ok(newState) => {
-                    self.order_state = newState;
+                Ok(new_state) => {
+                    self.order_state = new_state;
                     self.sequence_number = seq_event.sequence_number
                 },
                 Err((current_state, err)) => {
@@ -45,15 +40,18 @@ impl AggregateRoot for OrderEntity {
         Ok(&self.order_state)
     }
 
+    fn get_state(&self) -> &Self::State {
+        &self.order_state
+    }
 
-    fn handle_command<'a>(&mut self, command: Self::Command, services: Self::Services<'a>)
+    fn handle_command(&mut self, command: Self::Command)
       -> Result<(&Self::State, Vec<SequencedEvent<Self::Event>>), Self::Error> {
         // Handle required mutations here
         // Passing only immutable data to a pure function that return new state and the events
 
         // Take ownership of the current order state, temporary replace the enum value by an empty state
         let current_state = std::mem::replace(&mut self.order_state, OrderState::Empty(Empty{}));
-        match self.handle_command_with_state(current_state, command, services) {
+        match self.handle_command_with_state(current_state, command) {
             // If success, we have a new state to apply and a sequence of events
             Ok((new_state, events)) => {
                 self.order_state = new_state;
@@ -78,95 +76,82 @@ impl AggregateRoot for OrderEntity {
 
 impl OrderEntity {
 
-    fn handle_command_with_state<'a>(&self, current_state: OrderState, command: OrderCommand, services: &'a dyn OrderServices)
+    fn handle_command_with_state(&self, current_state: OrderState, command: OrderEntityCommand)
         -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
 
         match current_state {
             OrderState::Empty(order_empty) =>
                 self.empty_order_command_handler(order_empty, command),
             OrderState::WithCart(order_with_cart) =>
-                self.with_cart_command_handler(order_with_cart, command, services),
+                self.with_cart_command_handler(order_with_cart, command),
             OrderState::WithAddress(order_with_addr) =>
-                self.with_addr_command_handler(order_with_addr, command, services),
+                self.with_addr_command_handler(order_with_addr, command),
             OrderState::Completed(completed_order) =>
                 self.with_completed_order(completed_order, command)
         }
     }
 
-    fn empty_order_command_handler(&self, order_empty: Empty, command: OrderCommand)
+    fn empty_order_command_handler(&self, order_empty: Empty, command: OrderEntityCommand)
         -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
 
         match command {
-            OrderCommand::UpdateCart { cart } => {
+            OrderEntityCommand::AddCart { cart } => {
                 let new_state = OrderState::WithCart(order_empty.add_cart(cart.clone()));
                 let events = vec![OrderEvent::UpdatedCart{cart}];
                 Ok((new_state,events))
             },
-            OrderCommand::UpdateDeliveryAddress{..} => 
+            OrderEntityCommand::UpdateCart { .. } => Err((OrderState::Empty(order_empty), "Invalid state")),
+            OrderEntityCommand::UpdateDeliveryAddress{..} => 
                 Err((OrderState::Empty(order_empty), "Can't add a delivery address on an empty cart")),
-            OrderCommand::Pay{..} => 
+            OrderEntityCommand::Complete{..} => 
                 Err((OrderState::Empty(order_empty), "Order is not ready for payment")),
         }
     }
 
 
-    fn with_cart_command_handler<'a>(&self, order_with_cart: WithCart, command: OrderCommand, services: &'a dyn OrderServices)
+    fn with_cart_command_handler(&self, order_with_cart: WithCart, command: OrderEntityCommand)
         -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
 
         match command {
-            OrderCommand::UpdateCart { cart } => {
+            OrderEntityCommand::AddCart {cart} => {
                 let new_state = OrderState::WithCart(order_with_cart.update_cart(cart.clone()));
                 let events = vec![OrderEvent::UpdatedCart{cart}];
                 Ok((new_state,events))
             },
-            OrderCommand::UpdateDeliveryAddress { delivery_address } => {
-                let shipping_cost =
-                    services.shipping_cost(order_with_cart.get_cart(), &delivery_address);
-                let tax =
-                    services.tax_cost(order_with_cart.get_cart(), &shipping_cost);
-
-                let new_state = OrderState::WithAddress(order_with_cart.add_delivery_address(delivery_address.clone(), shipping_cost.clone(), tax.clone()));
+            OrderEntityCommand::UpdateCart { .. } => Err((OrderState::WithCart(order_with_cart), "Cart already present")),
+            OrderEntityCommand::UpdateDeliveryAddress { delivery_address, shipping_cost, tax } => {
+                let new_state = OrderState::WithAddress(
+                    order_with_cart.add_delivery_address(delivery_address.clone(), shipping_cost.clone(), tax.clone())
+                );
                 let events = vec![
                     OrderEvent::UpdatedDeliveryAddress { delivery_address, shipping_cost, tax }
                 ];
                 Ok((new_state,events))
             },
-            OrderCommand::Pay{..} => Err((OrderState::WithCart(order_with_cart), "Order is not ready for payment")),
+            OrderEntityCommand::Complete{..} => Err((OrderState::WithCart(order_with_cart), "Order is not ready for payment")),
         }
     }
 
-    fn with_addr_command_handler<'a>(&self, order_with_addr: WithAddress, command: OrderCommand, services: &'a dyn OrderServices)
+    fn with_addr_command_handler(&self, order_with_addr: WithAddress, command: OrderEntityCommand)
         -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
 
         match command {
-            OrderCommand::UpdateCart { cart } => {
-                let shipping_cost =
-                    services.shipping_cost(&cart, order_with_addr.get_delivery_address());
-                let tax =
-                    services.tax_cost(&cart, &shipping_cost);
-
-                let new_state = OrderState::WithAddress(order_with_addr.update_cart(cart.clone(), shipping_cost.clone(), tax.clone()));
+            OrderEntityCommand::AddCart {..} => Err((OrderState::WithAddress(order_with_addr), "Cart already present")),
+            OrderEntityCommand::UpdateCart { cart, shipping_cost, tax} => {
+                let new_state = OrderState::WithAddress(
+                    order_with_addr.update_cart(cart.clone(), shipping_cost.clone(), tax.clone())
+                );
                 let events = vec![OrderEvent::UpdatedCartOnExistingDeliveryAddress {cart, shipping_cost, tax}];
                 Ok((new_state, events))
             },
-            OrderCommand::UpdateDeliveryAddress { delivery_address } => {
-                let shipping_cost =
-                    services.shipping_cost(order_with_addr.get_cart(), &delivery_address);
-                let tax =
-                    services.tax_cost(order_with_addr.get_cart(), &shipping_cost);
-
-                let new_state = OrderState::WithAddress(order_with_addr.update_delivery_address(
-                    delivery_address.clone(), shipping_cost.clone(), tax.clone())
+            OrderEntityCommand::UpdateDeliveryAddress { delivery_address, shipping_cost, tax } => {
+                let new_state = OrderState::WithAddress(
+                    order_with_addr.update_delivery_address(delivery_address.clone(), shipping_cost.clone(), tax.clone())
                 );
-
-                let events = vec![
-                    OrderEvent::UpdatedDeliveryAddress { delivery_address, shipping_cost, tax }
-                ];
+                let events = vec![OrderEvent::UpdatedDeliveryAddress { delivery_address, shipping_cost, tax }];
                 Ok((new_state, events))
             },
-            OrderCommand::Pay{..} => {
-                // let invoice = services.payment_processor.pay_with_token(payment_token); // use the token
-                let invoice: Invoice = !todo!();
+            OrderEntityCommand::Complete{invoice} => {
                 let new_state = OrderState::Completed(order_with_addr.complete_order(invoice.clone()));
                 let events = vec![
                     OrderEvent::Completed { invoice }
@@ -176,7 +161,7 @@ impl OrderEntity {
         }
     }
 
-    fn with_completed_order(&self, completed_order: Completed, _command: OrderCommand)
+    fn with_completed_order(&self, completed_order: Completed, _command: OrderEntityCommand)
         -> Result<(OrderState, Vec<OrderEvent>), (OrderState, &'static str)> {
 
         Err((OrderState::Completed(completed_order), "Order is completed"))
@@ -246,12 +231,18 @@ pub enum OrderEvent{
     Completed{invoice: Invoice}
 }
 
-#[derive(Debug)]
-pub enum OrderCommand {
-    UpdateCart{cart: NonEmptyCart},
-    UpdateDeliveryAddress{delivery_address: DeliveryAddress},
-    Pay{payment_token: PaymentToken}
-}
-
 #[derive(Debug, Clone)]
-pub struct PaymentToken(String);
+pub enum OrderEntityCommand {
+    AddCart{cart: NonEmptyCart},
+    UpdateCart{
+        cart: NonEmptyCart,
+        shipping_cost: Money,
+        tax: Money
+    },
+    UpdateDeliveryAddress{        
+        delivery_address: DeliveryAddress,
+        shipping_cost: Money,
+        tax: Money
+    },
+    Complete{invoice: Invoice}
+}
