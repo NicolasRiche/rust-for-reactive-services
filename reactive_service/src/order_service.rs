@@ -100,6 +100,40 @@ where
         self.dispatch_entity_command(cmd.order_id, update_cart_command_builder)
     }
 
+    pub fn update_delivery_address(&mut self, cmd: UpdateDeliveryAddress)
+       -> Result<(&OrderState, Vec<SequencedEvent<OrderEvent>>), &'static str> {
+
+        let update_addr_command_builder =
+            |order_entity: &mut OrderEntity, shipping_calculator: &S, tax_calculator: &T, _: &P|
+             -> Result<OrderEntityCommand, &'static str> {
+
+                let delivery_address = cmd.delivery_address;
+                match order_entity.get_state() {
+
+                    OrderState::Empty(_) => Err("Can't add address to an empty cart."),
+
+                    OrderState::WithCart(with_cart) => {
+                        let cart = with_cart.get_cart();
+                        let shipping_cost = shipping_calculator.shipping_cost(cart, &delivery_address);
+                        let tax: Money = tax_calculator.tax_cost(cart, &shipping_cost);
+                        Ok(OrderEntityCommand::UpdateDeliveryAddress { delivery_address, shipping_cost, tax })
+                    },
+
+                    OrderState::WithAddress(with_addr) => {
+                        let cart = with_addr.get_cart();
+                        let shipping_cost = shipping_calculator.shipping_cost(cart, &delivery_address);
+                        let tax: Money = tax_calculator.tax_cost(cart, &shipping_cost);
+                        Ok(OrderEntityCommand::UpdateDeliveryAddress { delivery_address, shipping_cost, tax })
+                    },
+
+                    OrderState::Completed(_) => Err("Can't update address on a completed order."),
+                }
+            };
+
+        self.dispatch_entity_command(cmd.order_id, update_addr_command_builder)
+    }
+
+
     pub fn pay_order(&mut self, cmd: PayOrder)
        -> Result<(&OrderState, Vec<SequencedEvent<OrderEvent>>), &'static str> {
 
