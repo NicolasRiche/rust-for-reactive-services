@@ -1,9 +1,7 @@
 use reactive_service_domain::non_empty_cart::NonEmptyCart;
 use reactive_service_domain::order_state::{Currency, Money};
+use crate::order_service::TaxCalculator;
 
-pub trait TaxCalculator {
-    fn tax_cost(&self, cart: &NonEmptyCart, shipping_cost: &Money) -> Money;
-}
 pub struct LocalTaxCalculator {}
 
 impl TaxCalculator for LocalTaxCalculator {

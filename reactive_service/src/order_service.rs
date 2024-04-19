@@ -4,9 +4,8 @@ use reactive_service_domain::non_empty_cart::NonEmptyCart;
 use reactive_service_domain::order_entity::{OrderEntity, OrderEntityCommand, OrderEvent};
 use reactive_service_domain::order_state::{DeliveryAddress, Money, OrderState};
 use crate::payment_processor::{PaymentProcessor, PaymentToken};
-use crate::tax_calculator::TaxCalculator;
 
-pub trait EventsStore<Event> {
+pub trait EventsJournal<Event> {
     fn persist_event(&mut self, entity_id: OrderId, evt_w_seq: &SequencedEvent<Event>) -> Result<(), &'static str>;
     fn retrieve_events(&mut self, entity_id: OrderId) -> Result<Vec<SequencedEvent<Event>>, &'static str>;
 }
@@ -15,16 +14,20 @@ pub trait ShippingCalculator {
     fn shipping_cost(&self, cart: &NonEmptyCart, delivery_address: &DeliveryAddress) -> Money;
 }
 
+pub trait TaxCalculator {
+    fn tax_cost(&self, cart: &NonEmptyCart, shipping_cost: &Money) -> Money;
+}
+
 type OrderId = i64;
 
 pub struct OrderService<
-    E: EventsStore<OrderEvent>,
+    E: EventsJournal<OrderEvent>,
     S: ShippingCalculator,
     T: TaxCalculator,
     P: PaymentProcessor
 > {
     orders: HashMap<OrderId, OrderEntity>,
-    events_store: E,
+    events_journal: E,
     shipping_calculator: S,
     tax_calculator: T,
     payment_processor: P
@@ -32,7 +35,7 @@ pub struct OrderService<
 
 impl <E, S, T, P> OrderService<E, S, T, P>
 where
-    E: EventsStore<OrderEvent>,
+    E: EventsJournal<OrderEvent>,
     S: ShippingCalculator,
     T: TaxCalculator,
     P: PaymentProcessor
@@ -41,35 +44,34 @@ where
     pub fn new(events_store: E, shipping_calculator: S, tax_calculator: T, payment_processor: P) -> Self {
         Self {
             orders: HashMap::default(),
-            events_store,
+            events_journal: events_store,
             shipping_calculator,
             tax_calculator,
             payment_processor
         }
     }
 
-    fn dispatch_entity_command<F>(&mut self, entity_id: OrderId, f: F)
-        -> Result<(&OrderState, Vec<SequencedEvent<OrderEvent>>), &'static str>
-        where
-            F: FnOnce(&mut OrderEntity, &S, &T, &P) -> Result<OrderEntityCommand, &'static str>,
-       {
-
+    fn create_and_process_entity_command<F>(&mut self, entity_id: OrderId, create_command: F)
+      -> Result<(&OrderState, Vec<SequencedEvent<OrderEvent>>), &'static str>
+    where
+        F: FnOnce(&mut OrderEntity, &S, &T, &P) -> Result<OrderEntityCommand, &'static str>,
+    {
         let order: &mut OrderEntity = self.orders.entry(entity_id)
             .or_insert({
-                let events = self.events_store.retrieve_events(entity_id)?;
+                let events = self.events_journal.retrieve_events(entity_id)?;
                 let mut entity = OrderEntity::default();
                 let _ = entity.restore_from_events(events)?;
                 entity
             });
 
-        let entity_command: OrderEntityCommand = f(
+        let entity_command: OrderEntityCommand = create_command(
             order, &self.shipping_calculator, &self.tax_calculator, &self.payment_processor
         )?;
 
         let (state, events) = order.handle_command(entity_command)?;
 
         for evt in &events {
-            self.events_store.persist_event(entity_id, evt)?;
+            self.events_journal.persist_event(entity_id, evt)?;
         }
         Ok((state, events))
     }
@@ -78,8 +80,7 @@ where
         -> Result<(&OrderState, Vec<SequencedEvent<OrderEvent>>), &'static str> {
 
         let update_cart_command_builder =
-            |order_entity: &mut OrderEntity, shipping_calculator: &S, tax_calculator: &T, _: &P|
-                -> Result<OrderEntityCommand, &'static str> {
+            |order_entity: &mut OrderEntity, shipping_calculator: &S, tax_calculator: &T, _: &P| -> Result<OrderEntityCommand, &'static str> {
 
                 let cart = cmd.cart;
                 match order_entity.get_state() {
@@ -97,8 +98,10 @@ where
                 }
             };
 
-        self.dispatch_entity_command(cmd.order_id, update_cart_command_builder)
+        self.create_and_process_entity_command(cmd.order_id, update_cart_command_builder)
     }
+
+
 
     pub fn update_delivery_address(&mut self, cmd: UpdateDeliveryAddress)
        -> Result<(&OrderState, Vec<SequencedEvent<OrderEvent>>), &'static str> {
@@ -130,7 +133,7 @@ where
                 }
             };
 
-        self.dispatch_entity_command(cmd.order_id, update_addr_command_builder)
+        self.create_and_process_entity_command(cmd.order_id, update_addr_command_builder)
     }
 
 
@@ -156,7 +159,7 @@ where
                 }
             };
 
-        self.dispatch_entity_command(cmd.order_id, pay_order_command_builder)
+        self.create_and_process_entity_command(cmd.order_id, pay_order_command_builder)
     }
 
 }

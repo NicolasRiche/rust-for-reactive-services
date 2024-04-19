@@ -2,7 +2,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use postgres::{Client, NoTls};
 use reactive_service_domain::aggregate_root::SequencedEvent;
-use crate::order_service::EventsStore;
+use crate::order_service::EventsJournal;
 
 pub struct PostgresEventStore {
     client: Client
@@ -27,7 +27,7 @@ impl PostgresEventStore {
     }
 }
 
-impl<E: Serialize + DeserializeOwned> EventsStore<E> for PostgresEventStore {
+impl<E: Serialize + DeserializeOwned> EventsJournal<E> for PostgresEventStore {
     fn persist_event(&mut self, aggregate_id: i64, seq_event: &SequencedEvent<E>) -> Result<(), &'static str> {
         let serialized_event = serde_json::to_string(&seq_event.event).map_err(|_| "Failed to serialize event")?;
 
