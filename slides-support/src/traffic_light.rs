@@ -74,18 +74,3 @@ impl TrafficLight<Yellow> {
     }
 }
 
-pub fn usage() {
-
-    TrafficLight::new()
-      .to_green()
-      .to_yellow()
-      .to_flashing()
-
-       // Compiler error:
-        /*
-          no method named `to_flashing` found for struct `TrafficLight<Yellow>` in the current scope
-          the method was found for - `TrafficLight<Red>`
-         */
-   
-}
-
