@@ -17,10 +17,10 @@ impl <E> PostgresEventStore<E> {
 
         client.execute(
             "CREATE TABLE IF NOT EXISTS events (
-                aggregate_id BIGINT NOT NULL,
+                entity_id BIGINT NOT NULL,
                 sequence_number BIGINT NOT NULL,
                 data TEXT NOT NULL,
-                PRIMARY KEY(aggregate_id, sequence_number)
+                PRIMARY KEY(entity_id, sequence_number)
             )",
             &[],
         )?;
@@ -30,21 +30,18 @@ impl <E> PostgresEventStore<E> {
 }
 
 impl<E: Serialize + DeserializeOwned> EventsJournal<E> for PostgresEventStore<E> {
-    fn persist_event(&mut self, aggregate_id: i64, seq_event: &SequencedEvent<E>) -> Result<(), &'static str> {
+    fn persist_event(&mut self, entity_id: i64, seq_event: &SequencedEvent<E>) -> Result<(), &'static str> {
         let serialized_event = serde_json::to_string(&seq_event.event).map_err(|_| "Failed to serialize event")?;
         self.client.execute(
-            "INSERT INTO events (aggregate_id, sequence_number, data) VALUES ($1, $2, $3)",
-            &[&aggregate_id, &seq_event.sequence_number, &serialized_event],
-        )
-            // .map_err(|_| "Failed to persist event")?;
-            .unwrap();
+            "INSERT INTO events (entity_id, sequence_number, data) VALUES ($1, $2, $3)",
+            &[&entity_id, &seq_event.sequence_number, &serialized_event],
+        ).map_err(|_| "Failed to persist event")?;
         Ok(())
     }
-    fn retrieve_events(&mut self, aggregate_id: i64) -> Result<Vec<SequencedEvent<E>>, &'static str> {
+    fn retrieve_events(&mut self, entity_id: i64) -> Result<Vec<SequencedEvent<E>>, &'static str> {
         let rows = self.client
-            .query("SELECT sequence_number, data FROM events WHERE aggregate_id = $1 ORDER BY sequence_number ASC", &[&aggregate_id])
-            // .map_err(|_| "Failed to retrieve events")?;
-            .unwrap();
+            .query("SELECT sequence_number, data FROM events WHERE entity_id = $1 ORDER BY sequence_number ASC", &[&entity_id])
+            .map_err(|_| "Failed to retrieve events")?;
 
         rows.iter()
             .map(|row| {
