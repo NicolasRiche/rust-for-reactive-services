@@ -4,13 +4,12 @@ use reactive_service_domain::aggregate_root::SequencedEvent;
 use crate::order_service::EventsJournal;
 
 pub struct InMemoryJournal<E> {
-    events: HashMap<i64, Vec<SequencedEvent<E>>>,
-    _marker: PhantomData<E>,
+    events: HashMap<i64, Vec<SequencedEvent<E>>>
 }
 
 impl <E> InMemoryJournal<E> {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(Self { events: HashMap::default(), _marker: Default::default() })
+        Ok(Self { events: HashMap::default() })
     }
 }
 

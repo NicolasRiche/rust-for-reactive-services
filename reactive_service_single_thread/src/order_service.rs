@@ -165,7 +165,7 @@ where
     pub fn get_state(&mut self, entity_id: OrderId) -> Result<&OrderState, &'static str> {
         let order: &mut OrderEntity = self.orders.entry(entity_id)
             .or_insert_with(| | {
-                let events = 
+                let events =
                     self.events_journal.retrieve_events(entity_id).unwrap();
                 let mut entity = OrderEntity::default();
                 let _ = entity.restore_from_events(events).unwrap();

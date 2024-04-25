@@ -12,7 +12,7 @@ mod tests {
     use reactive_service_single_thread::tax_calculator::LocalTaxCalculator;
 
     #[test]
-    fn test_service() {
+    fn bench_throughput() {
 
         let event_journal= PostgresEventStore::new().unwrap();
         // let event_journal= InMemoryJournal::new().unwrap();
@@ -36,16 +36,22 @@ mod tests {
         }
 
         {
-            // cycle over X entities
-            let mut ring_iterator = (0i64..=1000i64).cycle();
-            let start_time = Instant::now();
-
             let num_commands = 10000;
+            let number_entities = 1000;
+
+            // cycle over the entities
+            let mut ring_iterator = (0..=number_entities).cycle();
+            let start_time = Instant::now();
 
             for _i in 0..num_commands {
                 let _ = service.update_cart(UpdateCart {
                     order_id: ring_iterator.next().unwrap(),
-                    cart: NonEmptyCart::new(HashMap::from([(Sku("apple".to_owned()), Quantity(1))])).unwrap()
+                    cart: NonEmptyCart::new(HashMap::from(
+                    [
+                        (Sku("apple".to_owned()), Quantity(1)),
+                        (Sku("chocolate".to_owned()), Quantity(2))
+                    ]
+                    )).unwrap()
                 });
             }
 
