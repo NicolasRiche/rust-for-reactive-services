@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Instant;
 use reactive_service_domain::aggregate_root::{AggregateRoot, SequencedEvent};
 use reactive_service_domain::non_empty_cart::NonEmptyCart;
 use reactive_service_domain::order_entity::{OrderEntity, OrderEntityCommand, OrderEvent};
@@ -41,10 +42,10 @@ where
     P: PaymentProcessor
 {
 
-    pub fn new(events_store: E, shipping_calculator: S, tax_calculator: T, payment_processor: P) -> Self {
+    pub fn new(events_journal: E, shipping_calculator: S, tax_calculator: T, payment_processor: P) -> Self {
         Self {
             orders: HashMap::default(),
-            events_journal: events_store,
+            events_journal: events_journal,
             shipping_calculator,
             tax_calculator,
             payment_processor
@@ -162,12 +163,27 @@ where
         self.create_and_process_entity_command(cmd.order_id, pay_order_command_builder)
     }
 
+    pub fn get_state(&mut self, entity_id: OrderId) -> Result<&OrderState, &'static str> {
+        let order: &mut OrderEntity = self.orders.entry(entity_id)
+            .or_insert_with(| | {
+                let events = 
+                    self.events_journal.retrieve_events(entity_id).unwrap();
+                let mut entity = OrderEntity::default();
+                let _ = entity.restore_from_events(events).unwrap();
+                println!("restored events");
+                entity
+            });
+
+        let state = order.get_state();
+        Ok(state)
+    }
+
 }
 
 #[derive(Debug, Clone)]
-pub struct UpdateCart{order_id: OrderId, cart: NonEmptyCart}
+pub struct UpdateCart{pub order_id: OrderId, pub cart: NonEmptyCart}
 #[derive(Debug)]
-pub struct UpdateDeliveryAddress{order_id: OrderId, delivery_address: DeliveryAddress}
+pub struct UpdateDeliveryAddress{pub order_id: OrderId, pub delivery_address: DeliveryAddress}
 #[derive(Debug)]
-pub struct PayOrder{order_id: OrderId, payment_token: PaymentToken}
+pub struct PayOrder{pub order_id: OrderId, pub payment_token: PaymentToken}
 

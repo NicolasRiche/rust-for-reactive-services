@@ -1,3 +1,4 @@
+use serde_derive::{Deserialize, Serialize};
 use crate::{canada_postal_code::CanadaPostalCode, non_empty_cart::NonEmptyCart};
 
 
@@ -98,26 +99,26 @@ pub struct Completed {
     invoice: Invoice
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeliveryAddress {
     pub street: Street,
     pub postal_code: CanadaPostalCode
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Street(pub String);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Money {
     pub amount_cents: u32,
     pub currency: Currency
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Currency {
     Cad
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Invoice{}
 

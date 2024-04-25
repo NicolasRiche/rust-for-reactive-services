@@ -1,17 +1,19 @@
+use std::marker::PhantomData;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use postgres::{Client, NoTls};
 use reactive_service_domain::aggregate_root::SequencedEvent;
 use crate::order_service::EventsJournal;
 
-pub struct PostgresEventStore {
-    client: Client
+pub struct PostgresEventStore<E> {
+    client: Client,
+    _marker: PhantomData<E>,
 }
 
-impl PostgresEventStore {
+impl <E> PostgresEventStore<E> {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
 
-        let mut client = Client::connect("host=localhost user=postgres", NoTls)?;
+        let mut client = Client::connect("host=localhost user=postgres password=postgres", NoTls)?;
 
         client.execute(
             "CREATE TABLE IF NOT EXISTS events (
@@ -23,21 +25,19 @@ impl PostgresEventStore {
             &[],
         )?;
 
-        Ok(Self{client})
+        Ok(Self { client, _marker: Default::default() })
     }
 }
 
-impl<E: Serialize + DeserializeOwned> EventsJournal<E> for PostgresEventStore {
+impl<E: Serialize + DeserializeOwned> EventsJournal<E> for PostgresEventStore<E> {
     fn persist_event(&mut self, aggregate_id: i64, seq_event: &SequencedEvent<E>) -> Result<(), &'static str> {
         let serialized_event = serde_json::to_string(&seq_event.event).map_err(|_| "Failed to serialize event")?;
-
         self.client.execute(
             "INSERT INTO events (aggregate_id, sequence_number, data) VALUES ($1, $2, $3)",
             &[&aggregate_id, &seq_event.sequence_number, &serialized_event],
         )
             // .map_err(|_| "Failed to persist event")?;
             .unwrap();
-
         Ok(())
     }
     fn retrieve_events(&mut self, aggregate_id: i64) -> Result<Vec<SequencedEvent<E>>, &'static str> {

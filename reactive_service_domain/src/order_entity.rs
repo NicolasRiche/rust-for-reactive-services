@@ -1,3 +1,5 @@
+use serde_derive::{Deserialize, Serialize};
+
 use crate::aggregate_root::{AggregateRoot, SequencedEvent};
 use crate::non_empty_cart::NonEmptyCart;
 use crate::order_state::{Completed, DeliveryAddress, Empty, Invoice, Money, OrderState, WithAddress, WithCart};
@@ -219,7 +221,7 @@ impl OrderEntity {
 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum OrderEvent{
     UpdatedCart {cart: NonEmptyCart},
     UpdatedDeliveryAddress {
