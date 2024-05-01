@@ -1,0 +1,24 @@
+[package]
+name = "reactive_service_async"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "reactive_service_async"
+path = "src/lib.rs"
+
+[dependencies]
+reactive_service_domain = { path = "../reactive_service_domain" }
+serde = { version = "*", features = ["derive"] }
+serde_json = "*"
+serde_derive = "*"
+tokio-postgres = "*"
+async-trait = "0.1.80"
+tokio = { version = "1", features = ["full", "rt"] }
+
+[profile.release]
+lto = "fat"
+debug = true
+codegen-units = 1
+
