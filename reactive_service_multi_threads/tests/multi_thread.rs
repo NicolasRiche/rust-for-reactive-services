@@ -37,6 +37,11 @@ mod tests {
             }
         }
 
+        // let pool = rayon::ThreadPoolBuilder::new()
+        //     .num_threads(5)
+        //     .build()
+        //     .unwrap();
+
         {
             let num_commands = 10000;
             let number_entities = 1000;
@@ -45,22 +50,24 @@ mod tests {
 
             let start_time = Instant::now();
 
-            (0..num_commands).into_par_iter().for_each(|_| {
-                let order_id = counter.fetch_add(1, Ordering::SeqCst);
-                if order_id > number_entities {
-                    counter.swap(1, Ordering::SeqCst);
-                }
+            // pool.install(|| {
+                (0..num_commands).into_par_iter().for_each(|_| {
+                    let order_id = counter.fetch_add(1, Ordering::SeqCst);
+                    if order_id > number_entities {
+                        counter.swap(1, Ordering::SeqCst);
+                    }
 
-                let _ = service.update_cart(UpdateCart {
-                    order_id: order_id,
-                    cart: NonEmptyCart::new(HashMap::from(
-                    [
-                        (Sku("apple".to_owned()), Quantity(1)),
-                        (Sku("chocolate".to_owned()), Quantity(2))
-                    ]
-                    )).unwrap()
+                    let _ = service.update_cart(UpdateCart {
+                        order_id: order_id,
+                        cart: NonEmptyCart::new(HashMap::from(
+                            [
+                                (Sku("apple".to_owned()), Quantity(1)),
+                                (Sku("chocolate".to_owned()), Quantity(2))
+                            ]
+                        )).unwrap()
+                    });
                 });
-            });
+            // });
 
             let elapsed_time = start_time.elapsed();
             let commands_per_sec = num_commands as f64 / elapsed_time.as_secs_f64();

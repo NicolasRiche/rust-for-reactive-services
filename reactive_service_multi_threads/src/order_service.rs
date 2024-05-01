@@ -1,5 +1,7 @@
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::ops::DerefMut;
+use std::sync::{Mutex, RwLock};
+use std::time::Instant;
 use reactive_service_domain::aggregate_root::{AggregateRoot, SequencedEvent};
 use reactive_service_domain::non_empty_cart::NonEmptyCart;
 use reactive_service_domain::order_entity::{OrderEntity, OrderEntityCommand, OrderEvent};
@@ -27,7 +29,7 @@ pub struct OrderService<
     T: TaxCalculator,
     P: PaymentProcessor
 > {
-    orders: Mutex<HashMap<OrderId, OrderEntity>>,
+    orders: RwLock<HashMap<OrderId, Mutex<OrderEntity>>>,
     events_journal: E,
     shipping_calculator: S,
     tax_calculator: T,
@@ -44,7 +46,7 @@ where
 
     pub fn new(events_journal: E, shipping_calculator: S, tax_calculator: T, payment_processor: P) -> Self {
         Self {
-            orders: Mutex::new(HashMap::default()),
+            orders: RwLock::new(HashMap::default()),
             events_journal,
             shipping_calculator,
             tax_calculator,
@@ -57,25 +59,45 @@ where
     where
         F: FnOnce(&mut OrderEntity, &S, &T, &P) -> Result<OrderEntityCommand, &'static str>,
     {
-        let mut guard = self.orders.lock().unwrap();
-        let order = guard.entry(entity_id)
-            .or_insert({
+        let start_time = Instant::now();
+
+        {
+            // Check if the aggregate is already in the map without locking (read-only access)
+            let read_lock = self.orders.read().unwrap();
+            if !read_lock.contains_key(&entity_id) {
+                // Only if entity does not exist we will need to lock (write access) the hashmap.
+                drop(read_lock); // Drop the read lock, allowing to have a write lock later.
+
+                // Create the entity from events
                 let events = self.events_journal.retrieve_events(entity_id)?;
                 let mut entity = OrderEntity::default();
                 let _ = entity.restore_from_events(events)?;
-                entity
-            });
+
+                // This is the only place we lock the Hashmap, just the time of the insert,
+                // minimal contention only when we access an entity not in memory yet
+                let mut write_lock = self.orders.write().unwrap();
+                write_lock.entry(entity_id).or_insert_with(|| Mutex::new(entity));
+            }
+        } // At that point we know the entity is present in the map, we also drop the read_lock
+
+        println!("Retrieve entity => {:?} microseconds", start_time.elapsed().as_micros());
+
+        let read_lock = self.orders.read().unwrap();
+        // Now, we'll lock the entity for the time needed to handle and apply the command.
+        let entity_mutex = read_lock.get(&entity_id).ok_or("Can't retrieve the entity")?;
+        let mut order = entity_mutex.lock().unwrap();
 
         let entity_command: OrderEntityCommand = create_command(
-            order, &self.shipping_calculator, &self.tax_calculator, &self.payment_processor
+            order.deref_mut(), &self.shipping_calculator, &self.tax_calculator, &self.payment_processor
         )?;
 
         let (state, events) = order.handle_command(entity_command)?;
-
+        println!("Process command => {:?} microseconds", start_time.elapsed().as_micros());
         for evt in &events {
             self.events_journal.persist_event(entity_id, evt)?;
         }
-        Ok(((*state).clone(), events))
+        println!("Persist events  => {:?} microseconds", start_time.elapsed().as_micros());
+        Ok((state.clone(), events)) // We return the result and entity_mutex is dropped
     }
 
     pub fn update_cart(&self, cmd: UpdateCart)
@@ -102,7 +124,6 @@ where
 
         self.create_and_process_entity_command(cmd.order_id, update_cart_command_builder)
     }
-
 
 
     pub fn update_delivery_address(&self, cmd: UpdateDeliveryAddress)
@@ -162,22 +183,6 @@ where
             };
 
         self.create_and_process_entity_command(cmd.order_id, pay_order_command_builder)
-    }
-
-    pub fn get_state(&self, entity_id: OrderId) -> Result<OrderState, &'static str> {
-        let mut guard = self.orders.lock().unwrap();
-        let order = guard.entry(entity_id)
-            .or_insert_with(| | {
-                let events =
-                    self.events_journal.retrieve_events(entity_id).unwrap();
-                let mut entity = OrderEntity::default();
-                let _ = entity.restore_from_events(events).unwrap();
-                println!("restored events");
-                entity
-            });
-
-        let state = (*order.get_state()).clone();
-        Ok(state)
     }
 
 }
