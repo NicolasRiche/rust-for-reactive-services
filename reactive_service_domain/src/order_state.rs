@@ -14,7 +14,7 @@ use crate::{canada_postal_code::CanadaPostalCode, non_empty_cart::NonEmptyCart};
 //     WithAddress --> WithAddress: update_cart(NonEmptyCart, ShippingCost, Tax)<br/> or <br/>update_delivery_address(DeliveryAddress, ShippingCost, Tax)
 // 
 //     WithAddress --> Completed: pay_with_token(PaymentToken)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum OrderState {
     Empty(Empty),
     WithCart(WithCart),
@@ -28,7 +28,7 @@ impl Default for OrderState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Empty{} 
 impl Empty {
     pub fn add_cart(self, cart: NonEmptyCart) -> WithCart { 
@@ -36,7 +36,7 @@ impl Empty {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WithCart {
     cart: NonEmptyCart
 }
@@ -59,7 +59,7 @@ impl WithCart {
     
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WithAddress {
     cart: NonEmptyCart,
     delivery_address: DeliveryAddress,
@@ -90,7 +90,7 @@ impl WithAddress {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Completed {
     cart: NonEmptyCart,
     delivery_address: DeliveryAddress,
