@@ -7,18 +7,12 @@ use reactive_service_domain::non_empty_cart::NonEmptyCart;
 use reactive_service_domain::order_entity::{OrderEntity, OrderEntityCommand, OrderEvent};
 use reactive_service_domain::order_state::{DeliveryAddress, Money, OrderState};
 use crate::payment_processor::{PaymentProcessor, PaymentToken};
+use crate::shipping_calculator::ShippingCalculator;
+use crate::tax_calculator::TaxCalculator;
 
 pub trait EventsJournal<Event> {
     fn persist_event(&self, entity_id: OrderId, evt_w_seq: &SequencedEvent<Event>) -> Result<(), &'static str>;
     fn retrieve_events(&self, entity_id: OrderId) -> Result<Vec<SequencedEvent<Event>>, &'static str>;
-}
-
-pub trait ShippingCalculator {
-    fn shipping_cost(&self, cart: &NonEmptyCart, delivery_address: &DeliveryAddress) -> Money;
-}
-
-pub trait TaxCalculator {
-    fn tax_cost(&self, cart: &NonEmptyCart, shipping_cost: &Money) -> Money;
 }
 
 type OrderId = i64;

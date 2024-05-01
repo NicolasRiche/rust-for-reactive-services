@@ -1,6 +1,9 @@
 use reactive_service_domain::non_empty_cart::NonEmptyCart;
 use reactive_service_domain::order_state::{Currency, DeliveryAddress, Money};
-use crate::order_service::ShippingCalculator;
+
+pub trait ShippingCalculator {
+    fn shipping_cost(&self, cart: &NonEmptyCart, delivery_address: &DeliveryAddress) -> Money;
+}
 
 pub struct LocalShippingCalculator {}
 
