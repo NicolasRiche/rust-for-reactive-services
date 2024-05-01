@@ -18,6 +18,8 @@ mod tests {
 
         let event_journal= PostgresEventStore::new("postgresql://localhost").unwrap();
 
+        // Note: With the RwLock, we no longer need to make the service mutable,
+        // Mutability is delegated to the RwLock data structure
         let service = OrderService::new(
             event_journal,
             LocalShippingCalculator{},
@@ -37,10 +39,10 @@ mod tests {
             }
         }
 
-        // let pool = rayon::ThreadPoolBuilder::new()
-        //     .num_threads(5)
-        //     .build()
-        //     .unwrap();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(8)
+            .build()
+            .unwrap();
 
         {
             let num_commands = 10000;
@@ -50,7 +52,7 @@ mod tests {
 
             let start_time = Instant::now();
 
-            // pool.install(|| {
+            pool.install(|| {
                 (0..num_commands).into_par_iter().for_each(|_| {
                     let order_id = counter.fetch_add(1, Ordering::SeqCst);
                     if order_id > number_entities {
@@ -67,7 +69,7 @@ mod tests {
                         )).unwrap()
                     });
                 });
-            // });
+            });
 
             let elapsed_time = start_time.elapsed();
             let commands_per_sec = num_commands as f64 / elapsed_time.as_secs_f64();
