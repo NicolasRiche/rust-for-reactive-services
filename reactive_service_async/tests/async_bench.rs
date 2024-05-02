@@ -1,9 +1,11 @@
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::time::Instant;
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
 
     use reactive_service_domain::non_empty_cart::{NonEmptyCart, Quantity, Sku};
+    use tokio::sync::Semaphore;
     use reactive_service_async::infra::postgres_events_store::PostgresEventStore;
     use reactive_service_async::order_service::{OrderService, UpdateCart};
     use reactive_service_async::payment_processor::LocalPaymentProcessor;
@@ -11,15 +13,19 @@ mod tests {
     use reactive_service_async::tax_calculator::LocalTaxCalculator;
 
     #[tokio::test(flavor = "current_thread")]
+    // #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn bench_throughput() {
 
         let event_journal= PostgresEventStore::new().await.unwrap();
-        let mut service = OrderService::new(
+
+        // Similar to the multi-threads we need Arc to share a single service
+        // (here multiple tokio tasks will need to clone the Arc)
+        let service = Arc::new(OrderService::new(
             event_journal,
             LocalShippingCalculator{},
             LocalTaxCalculator{},
             LocalPaymentProcessor{}
-        );
+        ));
 
         let number_entities = 1000;
 
@@ -37,22 +43,50 @@ mod tests {
 
         {
             let num_commands = 10000;
+            let max_concurrent_tasks = 10;
+            let semaphore = Arc::new(Semaphore::new(max_concurrent_tasks));
 
             // cycle over the entities
             let mut ring_iterator = (0..=number_entities).cycle();
             let start_time = Instant::now();
 
+            let mut handles = Vec::new();
+
             for _i in 0..num_commands {
+
                 let order_id = ring_iterator.next().unwrap();
-                let _ = service.update_cart(UpdateCart {
-                    order_id,
-                    cart: NonEmptyCart::new(HashMap::from(
-                        [
-                            (Sku("apple".to_owned()), Quantity(1)),
-                            (Sku("chocolate".to_owned()), Quantity(2))
-                        ]
-                    )).unwrap()
-                }).await;
+
+                match semaphore.clone().acquire_owned().await {
+                    Ok(permit) => {
+                        let cmd = UpdateCart {
+                            order_id,
+                            cart: NonEmptyCart::new(HashMap::from(
+                                [
+                                    (Sku("apple".to_owned()), Quantity(1)),
+                                    (Sku("chocolate".to_owned()), Quantity(2))
+                                ]
+                            )).unwrap()
+                        };
+
+                        // We need a clone of the Arc, because 'tokio::spawn(async move' will take ownership
+                        let service_arc = service.clone();
+
+                        let handle = tokio::spawn(async move {
+                            let _ = service_arc.update_cart(cmd).await;
+                            drop(permit);
+                        });
+
+                        handles.push(handle);
+                    }
+
+                    _ => {
+                        tokio::time::sleep(Duration::from_micros(10)).await;
+                    }
+                }
+            }
+
+            for handle in handles {
+                handle.await.expect("Task panicked");
             }
 
             let elapsed_time = start_time.elapsed();

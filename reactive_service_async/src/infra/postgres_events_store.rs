@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use reactive_service_domain::aggregate_root::SequencedEvent;
@@ -36,10 +35,9 @@ impl PostgresEventStore {
     }
 }
 
-#[async_trait]
-impl<E: Serialize + DeserializeOwned + Send + Sync> EventsJournal<E> for PostgresEventStore {
+impl<E: Serialize + DeserializeOwned> EventsJournal<E> for PostgresEventStore {
 
-    async fn persist_event(&mut self, entity_id: i64, seq_event: &SequencedEvent<E>) -> Result<(), &'static str> {
+    async fn persist_event(&self, entity_id: i64, seq_event: &SequencedEvent<E>) -> Result<(), &'static str> {
         let serialized_event = serde_json::to_string(&seq_event.event).map_err(|_| "Failed to serialize event")?;
         self.client.execute(
             "INSERT INTO events (entity_id, sequence_number, payload) VALUES ($1, $2, $3)",
@@ -48,7 +46,7 @@ impl<E: Serialize + DeserializeOwned + Send + Sync> EventsJournal<E> for Postgre
         Ok(())
     }
 
-    async fn retrieve_events(&mut self, entity_id: i64) -> Result<Vec<SequencedEvent<E>>, &'static str> {
+    async fn retrieve_events(&self, entity_id: i64) -> Result<Vec<SequencedEvent<E>>, &'static str> {
         let rows = self.client
             .query("SELECT sequence_number, payload FROM events WHERE entity_id = $1 ORDER BY sequence_number ASC", &[&entity_id])
             .await
