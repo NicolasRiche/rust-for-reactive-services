@@ -2,7 +2,7 @@
 
 These are the samples for the course "Rust for Reactive services".
 
-- [slides_support](slides_support/) :
+- [slides-support](slides-support/) :
 Illustrate how Rust help to increase Compile time correctness.
   - Make invalid state unrepresentable (and with zero-cost abstractions) 
   - Expose Type safe APIs
@@ -16,5 +16,5 @@ Using event-sourcing and following the onion architecture.
 
 - Then, the application layer, going through different concurrency strategies
   - [reactive_service_single_thread](reactive_service_single_thread/)
-  - [reactive_service_multi-threads](reactive_service_multi-threads/)
+  - [reactive_service_multi-threads](reactive_service_multi_threads/)
   - [reactive_service_async](reactive_service_async/)
