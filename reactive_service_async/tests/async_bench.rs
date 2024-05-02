@@ -8,28 +8,38 @@ mod tests {
     use tokio::sync::Semaphore;
     use reactive_service_async::infra::postgres_events_store::PostgresEventStore;
     use reactive_service_async::infra::scylla_event_store::ScyllaEventStore;
-    use reactive_service_async::order_service::{OrderService, UpdateCart};
+    use reactive_service_async::order_service::{EventsJournal, OrderService, UpdateCart};
     use reactive_service_async::payment_processor::LocalPaymentProcessor;
     use reactive_service_async::shipping_calculator::LocalShippingCalculator;
     use reactive_service_async::tax_calculator::LocalTaxCalculator;
+    use reactive_service_domain::order_entity::OrderEvent;
 
     #[tokio::test(flavor = "current_thread")]
     // #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    async fn bench_throughput() {
+    async fn bench_postgres() {
+        let events_journal = PostgresEventStore::new().await.unwrap();
+        let max_concurrent_tasks = 10;
+        bench_throughput(events_journal, max_concurrent_tasks).await
+    }
 
-        let event_journal = ScyllaEventStore::new("127.0.0.1:9042").await.unwrap();
+    #[tokio::test(flavor = "current_thread")]
+    async fn bench_scylla() {
+        // Note: to run a single node Scylla
+        // docker run --rm -it -p 9042:9042 scylladb/scylla
+        let events_journal = ScyllaEventStore::new("127.0.0.1:9042").await.unwrap();
+        let max_concurrent_tasks = 200;
+        bench_throughput(events_journal, max_concurrent_tasks).await
+    }
+    async fn bench_throughput<E: EventsJournal<OrderEvent> + Send + Sync + 'static>(
+        events_journal: E, max_concurrent_tasks: usize) {
 
-        // let event_journal= PostgresEventStore::new().await.unwrap();
-
-        // Similar to the multi-threads we need Arc to share a single service
-        // (here multiple tokio tasks will need to clone the Arc)
         let service = Arc::new(OrderService::new(
-            event_journal,
+            events_journal,
             LocalShippingCalculator{},
             LocalTaxCalculator{},
             LocalPaymentProcessor{}
         ));
-
+        
         let number_entities = 1000;
 
         {
@@ -46,7 +56,6 @@ mod tests {
 
         {
             let num_commands = 10000;
-            let max_concurrent_tasks = 100;
             let semaphore = Arc::new(Semaphore::new(max_concurrent_tasks));
 
             // cycle over the entities

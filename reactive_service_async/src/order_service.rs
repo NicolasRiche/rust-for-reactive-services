@@ -8,8 +8,8 @@ use tokio::sync::{Mutex, RwLock};
 use crate::payment_processor::{PaymentProcessor, PaymentToken};
 
 pub trait EventsJournal<Event> {
-    async fn persist_event(&self, entity_id: OrderId, evt_w_seq: &SequencedEvent<Event>) -> Result<(), &'static str>;
-    async fn retrieve_events(&self, entity_id: OrderId) -> Result<Vec<SequencedEvent<Event>>, &'static str>;
+    fn persist_event(&self, entity_id: OrderId, evt_w_seq: &SequencedEvent<Event>) -> impl std::future::Future<Output = Result<(), &'static str>> + Send;
+    fn retrieve_events(&self, entity_id: OrderId) -> impl std::future::Future<Output = Result<Vec<SequencedEvent<Event>>, &'static str>> + Send;
 }
 
 pub trait ShippingCalculator {

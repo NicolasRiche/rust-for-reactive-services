@@ -37,7 +37,7 @@ impl ScyllaEventStore {
     }
 }
 
-impl<E: Serialize + DeserializeOwned> EventsJournal<E> for ScyllaEventStore {
+impl<E: Serialize + DeserializeOwned + Send + Sync> EventsJournal<E> for ScyllaEventStore {
     async fn persist_event(&self, entity_id: i64, evt_w_seq: &SequencedEvent<E>) -> Result<(), &'static str> {
         let query = "INSERT INTO events (entity_id, sequence_number, event_payload) VALUES (?, ?, ?)";
         let values = (entity_id, evt_w_seq.sequence_number, serde_json::to_string(&evt_w_seq.event).unwrap());

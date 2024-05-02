@@ -35,7 +35,7 @@ impl PostgresEventStore {
     }
 }
 
-impl<E: Serialize + DeserializeOwned> EventsJournal<E> for PostgresEventStore {
+impl<E: Serialize + DeserializeOwned + Send + Sync> EventsJournal<E> for PostgresEventStore {
 
     async fn persist_event(&self, entity_id: i64, seq_event: &SequencedEvent<E>) -> Result<(), &'static str> {
         let serialized_event = serde_json::to_string(&seq_event.event).map_err(|_| "Failed to serialize event")?;
