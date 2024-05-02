@@ -7,6 +7,7 @@ mod tests {
     use reactive_service_domain::non_empty_cart::{NonEmptyCart, Quantity, Sku};
     use tokio::sync::Semaphore;
     use reactive_service_async::infra::postgres_events_store::PostgresEventStore;
+    use reactive_service_async::infra::scylla_event_store::ScyllaEventStore;
     use reactive_service_async::order_service::{OrderService, UpdateCart};
     use reactive_service_async::payment_processor::LocalPaymentProcessor;
     use reactive_service_async::shipping_calculator::LocalShippingCalculator;
@@ -16,7 +17,9 @@ mod tests {
     // #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn bench_throughput() {
 
-        let event_journal= PostgresEventStore::new().await.unwrap();
+        let event_journal = ScyllaEventStore::new("127.0.0.1:9042").await.unwrap();
+
+        // let event_journal= PostgresEventStore::new().await.unwrap();
 
         // Similar to the multi-threads we need Arc to share a single service
         // (here multiple tokio tasks will need to clone the Arc)
@@ -43,7 +46,7 @@ mod tests {
 
         {
             let num_commands = 10000;
-            let max_concurrent_tasks = 10;
+            let max_concurrent_tasks = 100;
             let semaphore = Arc::new(Semaphore::new(max_concurrent_tasks));
 
             // cycle over the entities

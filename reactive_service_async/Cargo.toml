@@ -15,6 +15,7 @@ serde_json = "*"
 serde_derive = "*"
 tokio-postgres = "*"
 tokio = { version = "1", features = ["full", "rt"] }
+scylla = "0.12.0"
 
 [profile.release]
 lto = "fat"
